@@ -54,7 +54,10 @@ Maybe you have some scripts you found on the internet to check some security set
 	• Explicit permissions granted to the public role<br>
 	• Orphaned users<br>
 	• TRUSTWORTHY database<br>
-	• Unusual database permissions<br>
+	• Unusual database permissions<p>
+
+After completing all these checks, you will get a single result set with any issues found, ordered by vulnerability level. Each row will identify what we found, why it is a (potential) issue, what our recommendation for resolving the issue is, and a link for more information about the issue.
+
 
 # How do I use it?
  
