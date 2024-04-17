@@ -65,7 +65,7 @@ Execute the script to create sp_CheckSecurity in the database of your choice, al
 <p>
 Although you can simply execute it as is, there are currently three parameters.<p>
   
-**@help** - the default is 0, but setting this to 1 will return some helpful information about sp_CheckHistory and it's usage in case you aren't able to read this web page.<p>
+**@help** - the default is 0, but setting this to 1 will return some helpful information about sp_CheckSecurity and its usage in case you aren't able to read this web page.<p>
 
 **@ShowHighOnly** - the default is 0, which returns all findings. If you only want to focus on the most important findings, you can reduce the result set by setting this to 1.<p>
 
