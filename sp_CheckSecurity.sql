@@ -1,5 +1,3 @@
-USE master;
-
 IF OBJECT_ID('dbo.sp_CheckSecurity') IS NULL
   EXEC ('CREATE PROCEDURE dbo.sp_CheckSecurity AS RETURN 0;');
 GO
@@ -1162,4 +1160,6 @@ IF @ShowHighOnly = 0
 		, ReadMoreURL
     FROM #Results 
     ORDER BY 1, 2, 3, 4, 5
+
+GO
     
