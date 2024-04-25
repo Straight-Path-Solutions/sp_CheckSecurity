@@ -855,7 +855,7 @@ SELECT
 	, 'SQL Server service account'
 	, NULL
 	, 'The SQL Server service is running with the following account: ' + service_account
-	, 'We recommend using managed serice accounts if possible to reduce vulnerabilty.'
+	, 'We recommend using managed service accounts if possible to reduce vulnerabilty.'
     , 'https://straightpathsql.com/cs/sql-server-service-account'
 FROM sys.dm_server_services 
 WHERE servicename like 'SQL Server (%'
@@ -869,7 +869,7 @@ SELECT
 	, 'SQL Agent service account'
 	, NULL
 	, 'The SQL Agent service is running with the following account: ' + service_account
-	, 'We recommend using managed serice accounts if possible to reduce vulnerabilty.'
+	, 'We recommend using managed service accounts if possible to reduce vulnerabilty.'
     , 'https://straightpathsql.com/cs/sql-server-service-account'
 FROM sys.dm_server_services 
 WHERE servicename like 'SQL Server Agent%'
