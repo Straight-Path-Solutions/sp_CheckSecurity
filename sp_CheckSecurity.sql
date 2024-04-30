@@ -679,7 +679,7 @@ INNER JOIN sys.dm_database_encryption_keys d
 DECLARE db_cursor CURSOR FOR
 SELECT name
 FROM sys.databases
-WHERE state_desc = 'ONLINE' AND database_id > 4;
+WHERE state_desc = 'ONLINE' AND database_id <> 2;
 
 OPEN db_cursor;
 FETCH NEXT FROM db_cursor INTO @DatabaseName;
