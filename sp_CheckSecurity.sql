@@ -86,8 +86,6 @@ IF @Help = 1 BEGIN
     SQL Server that old.
     - sp_CheckSecurity is designed only for database administrators, so the user
     must be a member of the sysadmin role to complete the checks.
-    - If a database name has a question mark in it, then certain checks will fail
-    due to the usage of sp_MSforeachdb.
     
     Parameters:
     @ShowHighOnly        1=Only high vulnerability items will be shown
@@ -179,7 +177,8 @@ DECLARE
 	, @ComputerNamePhysicalNetBIOS NVARCHAR(128)
 	, @ServerZeroName SYSNAME
 	, @InstanceName NVARCHAR(128)
-	, @Edition NVARCHAR(128);
+	, @Edition NVARCHAR(128)
+	, @DatabaseName NVARCHAR(128);
 
 IF OBJECT_ID('tempdb..#Results') IS NOT NULL
 	DROP TABLE #Results;
@@ -676,61 +675,112 @@ INNER JOIN sys.dm_database_encryption_keys d
 
 /* check for database backup certificate backup */
 IF @SQLVersionMajor >= 12 BEGIN
-	SET @SQL = '
-	SELECT DISTINCT
-		1
-		, ''High - action required''
-		, ''Database backup certificate never been backed up.''
-		, b.[database_name]
-		, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] + '' has never been backed up.''
-		, ''Make sure you have a recent backup of your certificate in a secure location in case you need to restore encrypted database backups.''
-		, ''https://straightpathsql.com/cs/database-backup-certificate-no-backup''
-	FROM sys.certificates c 
-	INNER JOIN msdb.dbo.backupset b
-		ON c.thumbprint = b.encryptor_thumbprint
-	WHERE c.pvt_key_last_backup_date IS NULL';
 
-	INSERT #Results
-	EXEC sp_MSforeachdb @SQL
+	DECLARE db_cursor CURSOR FOR
+	SELECT name
+	FROM sys.databases
+	WHERE state_desc = 'ONLINE'
+	
+	OPEN db_cursor;
+	FETCH NEXT FROM db_cursor INTO @DatabaseName;
 
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		SET @SQL = N'
+		USE [' + @DatabaseName + '];
+		
+		INSERT INTO #Results
+		SELECT DISTINCT
+			1
+			, ''High - action required''
+			, ''Database backup certificate never been backed up.''
+			, b.[database_name]
+			, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] + '' has never been backed up.''
+			, ''Make sure you have a recent backup of your certificate in a secure location in case you need to restore encrypted database backups.''
+			, ''https://straightpathsql.com/cs/database-backup-certificate-no-backup''
+		FROM sys.certificates c 
+		INNER JOIN msdb.dbo.backupset b
+			ON c.thumbprint = b.encryptor_thumbprint
+		WHERE c.pvt_key_last_backup_date IS NULL;';
+		EXEC sp_executesql @SQL;
+		
+		FETCH NEXT FROM db_cursor INTO @DatabaseName 
+	END
 
-	SET @SQL = '
-	SELECT DISTINCT
-		1
-		, ''High - action required''
-		, ''Database backup certificate not backed up recently.''
-		, b.[database_name]
-		, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] + '' has not been backed up since: '' + CAST(c.pvt_key_last_backup_date AS VARCHAR(100))
-		, ''Make sure you have a recent backup of your certificate in a secure location in case you need to restore encrypted database backups.''
-		, ''https://straightpathsql.com/cs/database-backup-certificate-no-backup''
-	FROM sys.certificates c 
-	INNER JOIN msdb.dbo.backupset b
-		ON c.thumbprint = b.encryptor_thumbprint
-	WHERE c.pvt_key_last_backup_date <= DATEADD(dd, -90, GETDATE());';
+	CLOSE db_cursor;
+	DEALLOCATE db_cursor;
 
-	INSERT #Results
-	EXEC sp_MSforeachdb @SQL
+	DECLARE db_cursor CURSOR FOR
+	SELECT name
+	FROM sys.databases
+	WHERE state_desc = 'ONLINE'
+	
+	OPEN db_cursor;
+	FETCH NEXT FROM db_cursor INTO @DatabaseName;
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		SET @SQL = N'
+		USE [' + @DatabaseName + '];
+		
+		INSERT INTO #Results
+		SELECT DISTINCT
+			1
+			, ''High - action required''
+			, ''Database backup certificate not backed up recently.''
+			, b.[database_name]
+			, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] + '' has not been backed up since: '' + CAST(c.pvt_key_last_backup_date AS VARCHAR(100))
+			, ''Make sure you have a recent backup of your certificate in a secure location in case you need to restore encrypted database backups.''
+			, ''https://straightpathsql.com/cs/database-backup-certificate-no-backup''
+		FROM sys.certificates c 
+		INNER JOIN msdb.dbo.backupset b
+			ON c.thumbprint = b.encryptor_thumbprint
+		WHERE c.pvt_key_last_backup_date <= DATEADD(dd, -90, GETDATE());';
+		EXEC sp_executesql @SQL;
+		
+		FETCH NEXT FROM db_cursor INTO @DatabaseName 
+	END
+	
+	CLOSE db_cursor;
+	DEALLOCATE db_cursor;
 
 
 /* check for database backup certificate expiration dates */
-	SET @SQL = '
-	SELECT DISTINCT
-		1
-		, ''High - action required''
-		, ''Database backup certificate set to expire.''
-		, b.[database_name]
-		, ''The certificate '' + c.name + '' used to encrypt database '' + b.[database_name] + '' is set to expire on: '' + CAST(c.expiry_date AS VARCHAR(100))
-		, ''You will not be able to backup or restore your encrypted database backups with an expired certificate, so these should be changed regularly like passwords.''
-		, ''https://straightpathsql.com/cs/database-backup-expire''
-	FROM sys.certificates c 
-	INNER JOIN msdb.dbo.backupset b
-		ON c.thumbprint = b.encryptor_thumbprint';
+		
+	DECLARE db_cursor CURSOR FOR
+	SELECT name
+	FROM sys.databases
+	WHERE state_desc = 'ONLINE'
+	
+	OPEN db_cursor;
+	FETCH NEXT FROM db_cursor INTO @DatabaseName;
 
-	INSERT #Results
-	EXEC sp_MSforeachdb @SQL
-
-
+	WHILE @@FETCH_STATUS = 0
+	BEGIN	
+		SET @SQL = N'
+		USE [' + @DatabaseName + '];
+		
+		INSERT INTO #Results
+		SELECT DISTINCT
+			1
+			, ''High - action required''
+			, ''Database backup certificate set to expire.''
+			, b.[database_name]
+			, ''The certificate '' + c.name + '' used to encrypt database '' + b.[database_name] + '' is set to expire on: '' + CAST(c.expiry_date AS VARCHAR(100))
+			, ''You will not be able to backup or restore your encrypted database backups with an expired certificate, so these should be changed regularly like passwords.''
+			, ''https://straightpathsql.com/cs/database-backup-expire''
+		FROM sys.certificates c 
+		INNER JOIN msdb.dbo.backupset b
+			ON c.thumbprint = b.encryptor_thumbprint';
+		EXEC sp_executesql @SQL;
+		
+		FETCH NEXT FROM db_cursor INTO @DatabaseName 
 	END
+	
+	CLOSE db_cursor;
+	DEALLOCATE db_cursor;
+END
+
 
 /* linked server check */
 INSERT #Results
@@ -952,104 +1002,184 @@ WHERE database_id > 4
 
 
 /* db_owner role member */
-SET @SQL = 'USE [?]; 
-SELECT 3, ''Potential - review recommended'' 
-, ''db_owner role member''
-, DB_NAME()
-, (''In ['' + DB_NAME() + ''], user ['' + u.name + '']  has the role ['' + g.name + ''].  This user can perform any function in this database including changing permissions for other users.'')
-, ''Verify these elevated database permissions are required for this user.''
-, ''https://straightpathsql.com/cs/db-owner''
-FROM (SELECT memberuid = convert(int, member_principal_id), groupuid = convert(int, role_principal_id) FROM [?].sys.database_role_members) m inner join [?].dbo.sysusers u on m.memberuid = u.uid inner join sysusers g on m.groupuid = g.uid where u.name <> ''dbo'' and g.name in (''db_owner'') OPTION (RECOMPILE);';
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE';
 
-INSERT #Results
-EXEC sp_MSforeachdb @SQL
+OPEN db_cursor;
+FETCH NEXT FROM db_cursor INTO @DatabaseName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	SET @SQL = N'
+	USE [' + @DatabaseName + '];
+	
+	INSERT INTO #Results
+	SELECT 
+		3
+		, ''Potential - review recommended'' 
+		, ''db_owner role member''
+		, DB_NAME()
+		, (''In ['' + DB_NAME() + ''], user ['' + u.name + '']  has the role ['' + g.name + ''].  This user can perform any function in this database including changing permissions for other users.'')
+		, ''Verify these elevated database permissions are required for this user.''
+		, ''https://straightpathsql.com/cs/db-owner''
+		FROM (SELECT memberuid = CONVERT(int, member_principal_id), groupuid = CONVERT(int, role_principal_id) FROM ' + @DatabaseName + '.sys.database_role_members) m INNER JOIN ' + @DatabaseName + '.dbo.sysusers u ON m.memberuid = u.uid INNER JOIN sysusers g ON m.groupuid = g.uid WHERE u.name <> ''dbo'' AND g.name IN (''db_owner'') OPTION (RECOMPILE);';
+	EXEC sp_executesql @SQL;
+	
+	FETCH NEXT FROM db_cursor INTO @DatabaseName;
+END
+
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
 
 
 /* unusual database permissions */
-SET @SQL = 'USE [?]; 
-SELECT 3, ''Potential - review recommended'' 
-, ''Unusual database permissions''
-, DB_NAME()
-, (''In ['' + DB_NAME() + ''], user ['' + u.name + '']  has the role ['' + g.name + ''].  This is an unusual database role with elevated permissions, but it is redundant if this user is also in the db_owner role.'')
-, ''Verify these elevated database permissions are required for this user.''
-, ''https://straightpathsql.com/cs/unusual-database-permissions''
-FROM (SELECT memberuid = convert(int, member_principal_id), groupuid = convert(int, role_principal_id) FROM [?].sys.database_role_members) m inner join [?].dbo.sysusers u on m.memberuid = u.uid inner join sysusers g on m.groupuid = g.uid where u.name <> ''dbo'' and g.name in (''db_accessadmin'' , ''db_securityadmin'' , ''db_ddladmin'') OPTION (RECOMPILE);';
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE'
 
-INSERT #Results
-EXEC sp_MSforeachdb @SQL
+OPEN db_cursor;
+FETCH NEXT FROM db_cursor INTO @DatabaseName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+	SET @SQL = N'
+	USE [' + @DatabaseName + '];
+	
+	INSERT INTO #Results
+	SELECT 
+		3
+		, ''Potential - review recommended'' 
+		, ''Unusual database permissions''
+		, 	DB_NAME()
+		, (''In ['' + DB_NAME() + ''], user ['' + u.name + '']  has the role ['' + g.name + ''].  This is an unusual database role with elevated permissions, but it is redundant if this user is also in the db_owner role.'')
+		, ''Verify these elevated database permissions are required for this user.''
+		, ''https://straightpathsql.com/cs/unusual-database-permissions''
+		FROM (SELECT memberuid = CONVERT(int, member_principal_id), groupuid = CONVERT(int, role_principal_id) FROM ' + @DatabaseName + '.sys.database_role_members) m INNER JOIN ' + @DatabaseName + '.dbo.sysusers u ON m.memberuid = u.uid INNER JOIN sysusers g ON m.groupuid = g.uid WHERE u.name <> ''dbo'' AND g.name IN (''db_accessadmin'' , ''db_securityadmin'' , ''db_ddladmin'') OPTION (RECOMPILE);';
+    EXEC sp_executesql @SQL;
+
+    FETCH NEXT FROM db_cursor INTO @DatabaseName;
+END
+
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
 
 
 /* find roles within roles in each database */
-SET @SQL = '
-USE [?]
-IF DB_Name() NOT IN (''tempdb'') BEGIN
-SELECT 3, ''Potential - review recommended'' 
-, ''Roles within roles''
-, db_name() as [DatabaseName]
-, ''The role ['' + user_name(roles.member_principal_id) + ''] is a member of the role ['' + user_name(roles.role_principal_id)
- + '']. Including roles in other roles can lead to unintended privilege escalation.''
-, ''Remove ['' + user_name(roles.member_principal_id) + ''] from the role ['' + user_name(roles.role_principal_id) + ''] and explicitly assign it required permissions''
-, ''https://straightpathsql.com/cs/database-roles-within-roles''
-FROM sys.database_role_members AS roles, sys.database_principals users
-WHERE roles.member_principal_id = users.principal_id
-AND user_name(roles.member_principal_id) <> ''RSExecRole''
-AND ( roles.role_principal_id >= 16384 AND roles.role_principal_id <= 16393)
-AND users.type = ''R''
-END'
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE' AND database_id <> 2;
 
+OPEN db_cursor;
+FETCH NEXT FROM db_cursor INTO @DatabaseName;
 
-INSERT #Results
-EXEC sp_MSforeachdb @SQL
+WHILE @@FETCH_STATUS = 0
+BEGIN
+SET @SQL = N'
+	USE [' + @DatabaseName + '];
+	
+	INSERT INTO #Results
+	SELECT 
+		3
+		, ''Potential - review recommended'' 
+		, ''Roles within roles''
+		, 	DB_NAME()
+		, ''The role ['' + user_name(roles.member_principal_id) + ''] is a member of the role ['' + user_name(roles.role_principal_id) + '']. Including roles in other roles can lead to unintended privilege escalation.''
+		, ''Remove ['' + user_name(roles.member_principal_id) + ''] from the role ['' + user_name(roles.role_principal_id) + ''] and explicitly assign it required permissions''
+		, ''https://straightpathsql.com/cs/database-roles-within-roles''
+	FROM sys.database_role_members AS roles, sys.database_principals users
+	WHERE roles.member_principal_id = users.principal_id
+		AND user_name(roles.member_principal_id) <> ''RSExecRole''
+		AND ( roles.role_principal_id >= 16384 AND roles.role_principal_id <= 16393)
+		AND users.type = ''R'';'
+    EXEC sp_executesql @SQL;
+
+    FETCH NEXT FROM db_cursor INTO @DatabaseName;
+END
+
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
 
 
 /* find orphan user in each database */
-SET @SQL = '
-USE [?]
-IF DB_Name() NOT IN (''tempdb'') BEGIN
-SELECT 4, ''Low - action recommended'' 
-, ''Orphaned user''
-, db_name() as [DatabaseName]
-, ''The database user ['' + [NAME] + ''] is orphaned, meaning it has no corresponding login at the instance level.''
-, ''Reconnect the user to an existing login using sp_change_users_login, or drop the user.''
-, ''https://straightpathsql.com/cs/orphaned-users''
-FROM sys.database_principals
-WHERE sid NOT IN (SELECT sid FROM sys.server_principals)
-AND type = ''S''
-AND principal_id != 2
-AND DATALENGTH(sid) <= 28'
-+ CASE 
-	WHEN @SQLVersionMajor >= 12 THEN ' AND authentication_type_desc = ''INSTANCE'''
-	END
-+ ' END'
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE' AND database_id <> 2;
 
+OPEN db_cursor;
+FETCH NEXT FROM db_cursor INTO @DatabaseName;
 
+WHILE @@FETCH_STATUS = 0
+BEGIN
+SET @SQL = N'
+	USE [' + @DatabaseName + '];
 
-INSERT #Results
-EXEC sp_MSforeachdb @SQL
+	INSERT INTO #Results
+	SELECT 
+		4
+		, ''Low - action recommended'' 
+		, ''Orphaned user''
+		, 	DB_NAME()
+		, ''The database user ['' + [NAME] + ''] is orphaned, meaning it has no corresponding login at the instance level.''
+		, ''Reconnect the user to an existing login using sp_change_users_login, or drop the user.''
+		, ''https://straightpathsql.com/cs/orphaned-users''
+	FROM sys.database_principals
+	WHERE sid NOT IN (SELECT sid FROM sys.server_principals)
+		AND type = ''S''
+		AND principal_id != 2
+		AND DATALENGTH(sid) <= 28'
+		+ CASE 
+			WHEN @SQLVersionMajor >= 12 THEN ' AND authentication_type_desc = ''INSTANCE'''
+			END
+		+ ';'
+    EXEC sp_executesql @SQL;
+
+    FETCH NEXT FROM db_cursor INTO @DatabaseName;
+END
+
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
 
 
 /* database owner is different from owner in master */ -- has issues with mistmatched collation
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE' AND database_id <> 2;
+
+OPEN db_cursor;
+FETCH NEXT FROM db_cursor INTO @DatabaseName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
 SET @SQL = '
-USE [?]
-IF DB_Name() NOT IN (''tempdb'') BEGIN
-SELECT 4, ''Low - action recommended'' 
-, ''Database owner discrepancy''
-, db_name() as [DatabaseName]
-, ''The database owner ['' + dbprs.name COLLATE SQL_Latin1_General_CP1_CI_AS + ''] is different than the owner listed in master ['' + ssp.name COLLATE SQL_Latin1_General_CP1_CI_AS + ''].''
-, ''Use sp_changedbowner to set the database owner to the correct login.''
-, ''https://straightpathsql.com/cs/database-owner-discrepancy''
-FROM   sys.database_principals AS dbprs
-INNER JOIN sys.databases AS dbs
- ON dbprs.sid != dbs.owner_sid 
-JOIN sys.server_principals ssp
- ON dbs.owner_sid = ssp.sid 
-WHERE dbs.database_id = Db_id()
-AND dbprs.principal_id = 1
-END'
+	USE [' + @DatabaseName + '];
 
-INSERT #Results
-EXEC sp_MSforeachdb @SQL
+	INSERT INTO #Results
+	SELECT 
+		4
+		, ''Low - action recommended'' 
+		, ''Database owner discrepancy''
+		, 	DB_NAME()
+		, ''The database owner ['' + dbprs.name COLLATE SQL_Latin1_General_CP1_CI_AS + ''] is different than the owner listed in master ['' + ssp.name COLLATE SQL_Latin1_General_CP1_CI_AS + ''].''
+		, ''Use sp_changedbowner to set the database owner to the correct login.''
+		, ''https://straightpathsql.com/cs/database-owner-discrepancy''
+	FROM   sys.database_principals AS dbprs
+	INNER JOIN sys.databases AS dbs ON dbprs.sid != dbs.owner_sid 
+	JOIN sys.server_principals ssp ON dbs.owner_sid = ssp.sid 
+	WHERE dbs.database_id = Db_id()
+		AND dbprs.principal_id = 1;'
+    EXEC sp_executesql @SQL;
 
+    FETCH NEXT FROM db_cursor INTO @DatabaseName;
+END
+
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
 
 
 /* explicit permissions granted to the Public role */
