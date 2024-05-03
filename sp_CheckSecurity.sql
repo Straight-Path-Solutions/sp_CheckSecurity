@@ -179,7 +179,8 @@ DECLARE
 	, @ComputerNamePhysicalNetBIOS NVARCHAR(128)
 	, @ServerZeroName SYSNAME
 	, @InstanceName NVARCHAR(128)
-	, @Edition NVARCHAR(128);
+	, @Edition NVARCHAR(128)
+	, @DatabaseName NVARCHAR(128);
 
 IF OBJECT_ID('tempdb..#Results') IS NOT NULL
 	DROP TABLE #Results;
@@ -187,7 +188,7 @@ IF OBJECT_ID('tempdb..#Results') IS NOT NULL
 CREATE TABLE #Results (
 	VulnerabilityLevel TINYINT
 	, Vulnerability VARCHAR(50)
-	, Issue VARCHAR(50)
+	, Issue VARCHAR(100)
 	, DatabaseName NVARCHAR(255)
 	, Details NVARCHAR(4000)
 	, ActionStep NVARCHAR(1000)
@@ -672,6 +673,42 @@ SELECT
 FROM sys.certificates c 
 INNER JOIN sys.dm_database_encryption_keys d 
 	ON c.thumbprint = d.encryptor_thumbprint;
+
+
+/* check Symmetric Key encryption algorithm */
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE' AND database_id <> 2;
+
+OPEN db_cursor;
+FETCH NEXT FROM db_cursor INTO @DatabaseName;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @SQL = N'
+    USE [' + @DatabaseName + '];
+    
+	INSERT INTO #Results
+	SELECT DISTINCT
+		3
+		, ''Potential - review recommended''
+		, ''Symmetric Key uses legacy encryption algorithm''
+		, DB_NAME()
+		, ''The Symmetric Key ['' + name + ''] used for encryption in '' + DB_NAME() + '' uses the encryption algorithm '' + algorithm_desc COLLATE Latin1_General_CI_AS_KS_WS + ''.''
+		, ''The Symmetric Key should be recreated to use the more secure AES_256 algorithm (Note that this requires migrating encrypted data from the old key to a new one, the encryption algorithm of an existing key is not modifiable).''
+		, ''https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-symmetric-key-transact-sql?view=sql-server-ver16''
+    FROM sys.symmetric_keys
+	WHERE algorithm_desc <> ''AES_256'' 
+		AND symmetric_key_id NOT IN (101, 102);
+	';
+    EXEC sp_executesql @SQL;
+
+    FETCH NEXT FROM db_cursor INTO @DatabaseName;
+END
+
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
 
 
 /* check for database backup certificate backup */
