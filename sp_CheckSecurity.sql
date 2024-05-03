@@ -675,6 +675,22 @@ INNER JOIN sys.dm_database_encryption_keys d
 	ON c.thumbprint = d.encryptor_thumbprint;
 
 
+/* check TDE key algorithm and length */
+INSERT #Results
+SELECT
+	3
+	, 'Potential - review recommended'
+	, 'TDE uses legacy encryption algorithm'
+	, d.name
+	, 'The TDE encryption for database ' + d.name + ' uses the encryption algorithm ' + dek.key_algorithm + ' with a key length of ' + CAST(dek.key_length AS CHAR(4))
+	, 'The database encryption key should be regenerated to use the more secure AES_256 algorithm.'
+	, 'https://learn.microsoft.com/en-us/sql/relational-databases/security/encryption/choose-an-encryption-algorithm?view=sql-server-ver16'
+FROM sys.dm_database_encryption_keys dek
+	RIGHT JOIN master.sys.databases d ON d.database_id = dek.database_id
+	LEFT JOIN master.sys.certificates c ON c.thumbprint = dek.encryptor_thumbprint
+WHERE dek.key_algorithm <> 'AES' or dek.key_length <> '256'
+
+
 /* check DMK encryption algorithm */
 DECLARE db_cursor CURSOR FOR
 SELECT name
@@ -693,7 +709,7 @@ BEGIN
 	SELECT DISTINCT
 		3
 		, ''Potential - review recommended''
-		, ''Database Master Key uses legacy encryption algorithm.''
+		, ''Database Master Key uses legacy encryption algorithm''
 		, DB_NAME()
 		, ''The Database Master Key ['' + name + ''] used for encryption in '' + DB_NAME() + '' uses the encryption algorithm '' + algorithm_desc COLLATE Latin1_General_CI_AS_KS_WS + ''.''
 		, ''The Database Master Key should be regenerated to use the more secure AES_256 algorithm.''
@@ -717,7 +733,7 @@ IF @SQLVersionMajor >= 12 BEGIN
 	SELECT DISTINCT
 		1
 		, ''High - action required''
-		, ''Database backup certificate never been backed up.''
+		, ''Database backup certificate never been backed up''
 		, b.[database_name]
 		, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] + '' has never been backed up.''
 		, ''Make sure you have a recent backup of your certificate in a secure location in case you need to restore encrypted database backups.''
@@ -735,7 +751,7 @@ IF @SQLVersionMajor >= 12 BEGIN
 	SELECT DISTINCT
 		1
 		, ''High - action required''
-		, ''Database backup certificate not backed up recently.''
+		, ''Database backup certificate not backed up recently''
 		, b.[database_name]
 		, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] + '' has not been backed up since: '' + CAST(c.pvt_key_last_backup_date AS VARCHAR(100))
 		, ''Make sure you have a recent backup of your certificate in a secure location in case you need to restore encrypted database backups.''
@@ -754,7 +770,7 @@ IF @SQLVersionMajor >= 12 BEGIN
 	SELECT DISTINCT
 		1
 		, ''High - action required''
-		, ''Database backup certificate set to expire.''
+		, ''Database backup certificate set to expire''
 		, b.[database_name]
 		, ''The certificate '' + c.name + '' used to encrypt database '' + b.[database_name] + '' is set to expire on: '' + CAST(c.expiry_date AS VARCHAR(100))
 		, ''You will not be able to backup or restore your encrypted database backups with an expired certificate, so these should be changed regularly like passwords.''
