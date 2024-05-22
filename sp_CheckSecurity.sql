@@ -677,9 +677,16 @@ INNER JOIN sys.dm_database_encryption_keys d
 IF @SQLVersionMajor >= 12 BEGIN
 
 	DECLARE db_cursor CURSOR FOR
-	SELECT name
-	FROM sys.databases
-	WHERE state_desc = 'ONLINE'
+	SELECT name 
+	FROM master.sys.databases
+	WHERE state = 0
+	AND [name] NOT IN (
+		SELECT adc.database_name
+		FROM sys.availability_replicas AS ar
+	   		JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+		WHERE ar.secondary_role_allow_connections = 0
+	   		AND ar.replica_server_name = @@SERVERNAME
+			AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0);
 	
 	OPEN db_cursor;
 	FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -711,9 +718,16 @@ IF @SQLVersionMajor >= 12 BEGIN
 	DEALLOCATE db_cursor;
 
 	DECLARE db_cursor CURSOR FOR
-	SELECT name
-	FROM sys.databases
-	WHERE state_desc = 'ONLINE'
+	SELECT name 
+	FROM master.sys.databases
+	WHERE state = 0
+	AND [name] NOT IN (
+		SELECT adc.database_name
+		FROM sys.availability_replicas AS ar
+	   		JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+		WHERE ar.secondary_role_allow_connections = 0
+	   		AND ar.replica_server_name = @@SERVERNAME
+			AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0);
 	
 	OPEN db_cursor;
 	FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -746,11 +760,17 @@ IF @SQLVersionMajor >= 12 BEGIN
 
 
 /* check for database backup certificate expiration dates */
-		
 	DECLARE db_cursor CURSOR FOR
-	SELECT name
-	FROM sys.databases
-	WHERE state_desc = 'ONLINE'
+	SELECT name 
+	FROM master.sys.databases
+	WHERE state = 0
+	AND [name] NOT IN (
+		SELECT adc.database_name
+		FROM sys.availability_replicas AS ar
+	   		JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+		WHERE ar.secondary_role_allow_connections = 0
+	   		AND ar.replica_server_name = @@SERVERNAME
+			AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0);
 	
 	OPEN db_cursor;
 	FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -1003,9 +1023,16 @@ WHERE database_id > 4
 
 /* db_owner role member */
 DECLARE db_cursor CURSOR FOR
-SELECT name
-FROM sys.databases
-WHERE state_desc = 'ONLINE';
+SELECT name 
+FROM master.sys.databases
+WHERE state = 0
+AND [name] NOT IN (
+	SELECT adc.database_name
+	FROM sys.availability_replicas AS ar
+		JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+	WHERE ar.secondary_role_allow_connections = 0
+		AND ar.replica_server_name = @@SERVERNAME
+		AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0);
 
 OPEN db_cursor;
 FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -1036,9 +1063,16 @@ DEALLOCATE db_cursor;
 
 /* unusual database permissions */
 DECLARE db_cursor CURSOR FOR
-SELECT name
-FROM sys.databases
-WHERE state_desc = 'ONLINE'
+SELECT name 
+FROM master.sys.databases
+WHERE state = 0
+AND [name] NOT IN (
+	SELECT adc.database_name
+	FROM sys.availability_replicas AS ar
+		JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+	WHERE ar.secondary_role_allow_connections = 0
+		AND ar.replica_server_name = @@SERVERNAME
+		AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0);
 
 OPEN db_cursor;
 FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -1069,9 +1103,16 @@ DEALLOCATE db_cursor;
 
 /* find roles within roles in each database */
 DECLARE db_cursor CURSOR FOR
-SELECT name
-FROM sys.databases
-WHERE state_desc = 'ONLINE' AND database_id <> 2;
+SELECT name 
+FROM master.sys.databases
+WHERE state = 0 AND database_id <> 2
+AND [name] NOT IN (
+	SELECT adc.database_name
+	FROM sys.availability_replicas AS ar
+		JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+	WHERE ar.secondary_role_allow_connections = 0
+		AND ar.replica_server_name = @@SERVERNAME
+		AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0);
 
 OPEN db_cursor;
 FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -1106,9 +1147,16 @@ DEALLOCATE db_cursor;
 
 /* find orphan user in each database */
 DECLARE db_cursor CURSOR FOR
-SELECT name
-FROM sys.databases
-WHERE state_desc = 'ONLINE' AND database_id <> 2;
+SELECT name 
+FROM master.sys.databases
+WHERE state = 0 AND database_id <> 2
+AND [name] NOT IN (
+	SELECT adc.database_name
+	FROM sys.availability_replicas AS ar
+		JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+	WHERE ar.secondary_role_allow_connections = 0
+		AND ar.replica_server_name = @@SERVERNAME
+		AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0);
 
 OPEN db_cursor;
 FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -1147,9 +1195,16 @@ DEALLOCATE db_cursor;
 
 /* database owner is different from owner in master */ -- has issues with mistmatched collation
 DECLARE db_cursor CURSOR FOR
-SELECT name
-FROM sys.databases
-WHERE state_desc = 'ONLINE' AND database_id <> 2;
+SELECT name 
+FROM master.sys.databases
+WHERE state = 0 AND database_id <> 2
+AND [name] NOT IN (
+	SELECT adc.database_name
+	FROM sys.availability_replicas AS ar
+		JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+	WHERE ar.secondary_role_allow_connections = 0
+		AND ar.replica_server_name = @@SERVERNAME
+		AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0);
 
 OPEN db_cursor;
 FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -1164,7 +1219,7 @@ SET @SQL = '
 		4
 		, ''Low - action recommended'' 
 		, ''Database owner discrepancy''
-		, 	DB_NAME()
+		, DB_NAME()
 		, ''The database owner ['' + dbprs.name COLLATE SQL_Latin1_General_CP1_CI_AS + ''] is different than the owner listed in master ['' + ssp.name COLLATE SQL_Latin1_General_CP1_CI_AS + ''].''
 		, ''Use sp_changedbowner to set the database owner to the correct login.''
 		, ''https://straightpathsql.com/cs/database-owner-discrepancy''
@@ -1184,88 +1239,88 @@ DEALLOCATE db_cursor;
 
 /* explicit permissions granted to the Public role */
 IF @SQLVersionMajor >= 12 BEGIN
-	DECLARE @DB_Name VARCHAR(256) 
 
-	DECLARE public_cursor CURSOR FOR
-		SELECT name 
-		FROM master.sys.databases
-		WHERE database_id > 4 AND state = 0
-		AND [name] not in (
-			SELECT adc.database_name
-			FROM sys.availability_replicas AS ar
-		   JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
-			WHERE ar.secondary_role_allow_connections = 0
-		   AND ar.replica_server_name = @@SERVERNAME
-		   AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0 
-			)
+	DECLARE db_cursor CURSOR FOR
+	SELECT name 
+	FROM master.sys.databases
+	WHERE state = 0 AND database_id <> 2
+	AND [name] NOT IN (
+		SELECT adc.database_name
+		FROM sys.availability_replicas AS ar
+	   		JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+		WHERE ar.secondary_role_allow_connections = 0
+	   		AND ar.replica_server_name = @@SERVERNAME
+			AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0);
 
-	OPEN public_cursor 
-	FETCH NEXT FROM public_cursor INTO @DB_Name 
+	OPEN db_cursor 
+	FETCH NEXT FROM db_cursor INTO @DatabaseName 
 
 	WHILE @@FETCH_STATUS = 0 
 	BEGIN 
-
-	SET @SQL = 'USE ' + QUOTENAME(@DB_Name) + '; ' +
-	'SELECT 2, ''High - review required''
-	, ''Public permissions''
-	, db_name() as [DatabaseName]
-	, ''The [public] role has been granted the permission ['' + per.permission_name + ''] on the object [''
-	+ CASE
-	WHEN per.class = 0 THEN db_name()
-	WHEN per.class = 3 THEN schema_name(major_id)
-	WHEN per.class = 4 THEN printarget.NAME
-	WHEN per.class = 5 THEN asm.NAME
-	WHEN per.class = 6 THEN type_name(major_id)
-	WHEN per.class = 10 THEN xmlsc.NAME
-	WHEN per.class = 15 THEN msgt.NAME COLLATE DATABASE_DEFAULT
-	WHEN per.class = 16 THEN svcc.NAME COLLATE DATABASE_DEFAULT
-	WHEN per.class = 17 THEN svcs.NAME COLLATE DATABASE_DEFAULT
-	WHEN per.class = 18 THEN rsb.NAME COLLATE DATABASE_DEFAULT
-	WHEN per.class = 19 THEN rts.NAME COLLATE DATABASE_DEFAULT
-	WHEN per.class = 23 THEN ftc.NAME
-	WHEN per.class = 24 THEN sym.NAME
-	WHEN per.class = 25 THEN crt.NAME
-	WHEN per.class = 26 THEN asym.NAME
-	END + ''].''
-	, ''Because these permissions are available to anyone who can connect to your instance, they should be revoked and granted to users, groups, or roles other than public.''
-	, ''https://straightpathsql.com/cs/explicit-permissions-for-public''
-	FROM sys.database_permissions AS per
-	LEFT JOIN sys.database_principals AS prin ON per.grantee_principal_id = prin.principal_id
-	LEFT JOIN sys.assemblies AS asm ON per.major_id = asm.assembly_id
-	LEFT JOIN sys.xml_schema_collections AS xmlsc ON per.major_id = xmlsc.xml_collection_id
-	LEFT JOIN sys.service_message_types AS msgt ON per.major_id = msgt.message_type_id
-	LEFT JOIN sys.service_contracts AS svcc ON per.major_id = svcc.service_contract_id
-	LEFT JOIN sys.services AS svcs ON per.major_id = svcs.service_id
-	LEFT JOIN sys.remote_service_bindings AS rsb ON per.major_id = rsb.remote_service_binding_id
-	LEFT JOIN sys.routes AS rts ON per.major_id = rts.route_id
-	LEFT JOIN sys.database_principals AS printarget ON per.major_id = printarget.principal_id
-	LEFT JOIN sys.symmetric_keys AS sym ON per.major_id = sym.symmetric_key_id
-	LEFT JOIN sys.asymmetric_keys AS asym ON per.major_id = asym.asymmetric_key_id
-	LEFT JOIN sys.certificates AS crt ON per.major_id = crt.certificate_id
-	LEFT JOIN sys.fulltext_catalogs AS ftc ON per.major_id = ftc.fulltext_catalog_id
-	WHERE per.grantee_principal_id = DATABASE_PRINCIPAL_ID(''public'')
-		AND class != 1 -- Object or Columns (class = 1) are handled by VA1054 and have different remediation syntax
-		AND [state] IN (''G'',''W'')
-		AND NOT (
-			per.class = 0
-			AND prin.NAME = ''public''
-			AND per.major_id = 0
-			AND per.minor_id = 0
-			AND permission_name IN (
-				''VIEW ANY COLUMN ENCRYPTION KEY DEFINITION''
-				,''VIEW ANY COLUMN MASTER KEY DEFINITION''
-				)
-			)'
+	SET @SQL = N'
+		USE [' + @DatabaseName + '];
 		
-		INSERT #Results
+		INSERT INTO #Results
+		SELECT
+			2 
+			, ''High - review required''
+			, ''Public permissions''
+			, 	db_name() as [DatabaseName]
+			, ''The [public] role has been granted the permission ['' + per.permission_name + ''] on the object ['' + 
+			CASE
+				WHEN per.class = 0 THEN db_name()
+				WHEN per.class = 3 THEN schema_name(major_id)
+				WHEN per.class = 4 THEN printarget.NAME
+				WHEN per.class = 5 THEN asm.NAME
+				WHEN per.class = 6 THEN type_name(major_id)
+				WHEN per.class = 10 THEN xmlsc.NAME
+				WHEN per.class = 15 THEN msgt.NAME COLLATE DATABASE_DEFAULT
+				WHEN per.class = 16 THEN svcc.NAME COLLATE DATABASE_DEFAULT
+				WHEN per.class = 17 THEN svcs.NAME COLLATE DATABASE_DEFAULT
+				WHEN per.class = 18 THEN rsb.NAME COLLATE DATABASE_DEFAULT
+				WHEN per.class = 19 THEN rts.NAME COLLATE DATABASE_DEFAULT
+				WHEN per.class = 23 THEN ftc.NAME
+				WHEN per.class = 24 THEN sym.NAME
+				WHEN per.class = 25 THEN crt.NAME
+				WHEN per.class = 26 THEN asym.NAME
+			END + ''].''
+			, ''Because these permissions are available to anyone who can connect to your instance, they should be revoked and granted to users, groups, or roles other than public.''
+			, ''https://straightpathsql.com/cs/explicit-permissions-for-public''
+		FROM sys.database_permissions AS per
+			LEFT JOIN sys.database_principals AS prin ON per.grantee_principal_id = prin.principal_id
+			LEFT JOIN sys.assemblies AS asm ON per.major_id = asm.assembly_id
+			LEFT JOIN sys.xml_schema_collections AS xmlsc ON per.major_id = xmlsc.xml_collection_id
+			LEFT JOIN sys.service_message_types AS msgt ON per.major_id = msgt.message_type_id
+			LEFT JOIN sys.service_contracts AS svcc ON per.major_id = svcc.service_contract_id
+			LEFT JOIN sys.services AS svcs ON per.major_id = svcs.service_id
+			LEFT JOIN sys.remote_service_bindings AS rsb ON per.major_id = rsb.remote_service_binding_id
+			LEFT JOIN sys.routes AS rts ON per.major_id = rts.route_id
+			LEFT JOIN sys.database_principals AS printarget ON per.major_id = printarget.principal_id
+			LEFT JOIN sys.symmetric_keys AS sym ON per.major_id = sym.symmetric_key_id
+			LEFT JOIN sys.asymmetric_keys AS asym ON per.major_id = asym.asymmetric_key_id
+			LEFT JOIN sys.certificates AS crt ON per.major_id = crt.certificate_id
+			LEFT JOIN sys.fulltext_catalogs AS ftc ON per.major_id = ftc.fulltext_catalog_id
+		WHERE per.grantee_principal_id = DATABASE_PRINCIPAL_ID(''public'')
+			AND class != 1 -- Object or Columns (class = 1) are handled by VA1054 and have different remediation syntax
+			AND [state] IN (''G'',''W'')
+			AND NOT (
+				per.class = 0
+				AND prin.NAME = ''public''
+				AND per.major_id = 0
+				AND per.minor_id = 0
+				AND permission_name IN (
+					''VIEW ANY COLUMN ENCRYPTION KEY DEFINITION''
+					,''VIEW ANY COLUMN MASTER KEY DEFINITION''
+					)
+				)';
 		EXEC sp_executesql @SQL 
 
-		/* iterate the cursor to the next database name */
-		FETCH NEXT FROM public_cursor INTO @DB_Name 
-	END 
-	CLOSE public_cursor;
-	DEALLOCATE public_cursor;
-	END;
+		FETCH NEXT FROM db_cursor INTO @DatabaseName 
+	END
+			
+	CLOSE db_cursor;
+	DEALLOCATE db_cursor;
+END
 
 /* results */
 IF @ShowHighOnly = 1
@@ -1292,4 +1347,3 @@ IF @ShowHighOnly = 0
 		, ReadMoreURL
     FROM #Results 
     ORDER BY 1, 2, 3, 4, 5
-    
