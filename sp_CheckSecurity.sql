@@ -695,7 +695,7 @@ IF @SQLVersionMajor >= 12 BEGIN
 			, ''High - action required''
 			, ''Database backup certificate never been backed up.''
 			, b.[database_name]
-			, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] + '' has never been backed up.''
+			, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] COLLATE DATABASE_DEFAULT + '' has never been backed up.''
 			, ''Make sure you have a recent backup of your certificate in a secure location in case you need to restore encrypted database backups.''
 			, ''https://straightpathsql.com/cs/database-backup-certificate-no-backup''
 		FROM sys.certificates c 
@@ -729,7 +729,7 @@ IF @SQLVersionMajor >= 12 BEGIN
 			, ''High - action required''
 			, ''Database backup certificate not backed up recently.''
 			, b.[database_name]
-			, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] + '' has not been backed up since: '' + CAST(c.pvt_key_last_backup_date AS VARCHAR(100))
+			, ''The certificate '' + c.name + '' used to encrypt database backups for '' + b.[database_name] COLLATE DATABASE_DEFAULT + '' has not been backed up since: '' + CAST(c.pvt_key_last_backup_date AS VARCHAR(100))
 			, ''Make sure you have a recent backup of your certificate in a secure location in case you need to restore encrypted database backups.''
 			, ''https://straightpathsql.com/cs/database-backup-certificate-no-backup''
 		FROM sys.certificates c 
@@ -766,7 +766,7 @@ IF @SQLVersionMajor >= 12 BEGIN
 			, ''High - action required''
 			, ''Database backup certificate set to expire.''
 			, b.[database_name]
-			, ''The certificate '' + c.name + '' used to encrypt database '' + b.[database_name] + '' is set to expire on: '' + CAST(c.expiry_date AS VARCHAR(100))
+			, ''The certificate '' + c.name + '' used to encrypt database '' + b.[database_name] COLLATE DATABASE_DEFAULT + '' is set to expire on: '' + CAST(c.expiry_date AS VARCHAR(100))
 			, ''You will not be able to backup or restore your encrypted database backups with an expired certificate, so these should be changed regularly like passwords.''
 			, ''https://straightpathsql.com/cs/database-backup-expire''
 		FROM sys.certificates c 
