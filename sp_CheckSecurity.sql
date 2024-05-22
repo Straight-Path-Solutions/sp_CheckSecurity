@@ -695,7 +695,7 @@ BEGIN
 		, ''Potential - review recommended''
 		, ''Database Master Key uses legacy encryption algorithm''
 		, DB_NAME()
-		, ''The Database Master Key ['' + name + ''] used for encryption in '' + DB_NAME() + '' uses the encryption algorithm '' + algorithm_desc COLLATE Latin1_General_CI_AS_KS_WS + ''.''
+		, ''The Database Master Key ['' + name + ''] used for encryption in '' + DB_NAME() + '' uses the encryption algorithm '' + algorithm_desc COLLATE DATABASE_DEFAULT + ''.''
 		, ''The Database Master Key should be regenerated to use the more secure AES_256 algorithm.''
 		, ''https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-master-key-transact-sql?view=sql-server-ver16''
     FROM sys.symmetric_keys
