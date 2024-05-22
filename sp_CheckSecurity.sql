@@ -177,7 +177,6 @@ DECLARE
 	, @SQLVersionMajor DECIMAL(10,2)
 	, @SQLVersionMinor DECIMAL(10,2)
 	, @ComputerNamePhysicalNetBIOS NVARCHAR(128)
-	, @ServerZeroName SYSNAME
 	, @InstanceName NVARCHAR(128)
 	, @Edition NVARCHAR(128);
 
@@ -241,11 +240,6 @@ SELECT
 	@ComputerNamePhysicalNetBIOS = CAST(SERVERPROPERTY('ComputerNamePhysicalNetBIOS') AS NVARCHAR(128))
 	, @InstanceName = CAST(SERVERPROPERTY('InstanceName') AS NVARCHAR(128))
 	, @Edition = CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128));
-
-
-SELECT @ServerZeroName = [name]
-FROM sys.servers
-WHERE server_id = 0
 
 
 /* name and version check */
