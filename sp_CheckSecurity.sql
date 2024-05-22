@@ -1024,7 +1024,7 @@ BEGIN
 		, (''In ['' + DB_NAME() + ''], user ['' + u.name + '']  has the role ['' + g.name + ''].  This user can perform any function in this database including changing permissions for other users.'')
 		, ''Verify these elevated database permissions are required for this user.''
 		, ''https://straightpathsql.com/cs/db-owner''
-		FROM (SELECT memberuid = CONVERT(int, member_principal_id), groupuid = CONVERT(int, role_principal_id) FROM ' + @DatabaseName + '.sys.database_role_members) m INNER JOIN ' + @DatabaseName + '.dbo.sysusers u ON m.memberuid = u.uid INNER JOIN sysusers g ON m.groupuid = g.uid WHERE u.name <> ''dbo'' AND g.name IN (''db_owner'') OPTION (RECOMPILE);';
+		FROM (SELECT memberuid = CONVERT(int, member_principal_id), groupuid = CONVERT(int, role_principal_id) FROM [' + @DatabaseName + '].sys.database_role_members) m INNER JOIN [' + @DatabaseName + '].dbo.sysusers u ON m.memberuid = u.uid INNER JOIN sysusers g ON m.groupuid = g.uid WHERE u.name <> ''dbo'' AND g.name IN (''db_owner'') OPTION (RECOMPILE);';
 	EXEC sp_executesql @SQL;
 	
 	FETCH NEXT FROM db_cursor INTO @DatabaseName;
@@ -1057,7 +1057,7 @@ BEGIN
 		, (''In ['' + DB_NAME() + ''], user ['' + u.name + '']  has the role ['' + g.name + ''].  This is an unusual database role with elevated permissions, but it is redundant if this user is also in the db_owner role.'')
 		, ''Verify these elevated database permissions are required for this user.''
 		, ''https://straightpathsql.com/cs/unusual-database-permissions''
-		FROM (SELECT memberuid = CONVERT(int, member_principal_id), groupuid = CONVERT(int, role_principal_id) FROM ' + @DatabaseName + '.sys.database_role_members) m INNER JOIN ' + @DatabaseName + '.dbo.sysusers u ON m.memberuid = u.uid INNER JOIN sysusers g ON m.groupuid = g.uid WHERE u.name <> ''dbo'' AND g.name IN (''db_accessadmin'' , ''db_securityadmin'' , ''db_ddladmin'') OPTION (RECOMPILE);';
+		FROM (SELECT memberuid = CONVERT(int, member_principal_id), groupuid = CONVERT(int, role_principal_id) FROM [' + @DatabaseName + '].sys.database_role_members) m INNER JOIN [' + @DatabaseName + '].dbo.sysusers u ON m.memberuid = u.uid INNER JOIN sysusers g ON m.groupuid = g.uid WHERE u.name <> ''dbo'' AND g.name IN (''db_accessadmin'' , ''db_securityadmin'' , ''db_ddladmin'') OPTION (RECOMPILE);';
     EXEC sp_executesql @SQL;
 
     FETCH NEXT FROM db_cursor INTO @DatabaseName;
