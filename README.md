@@ -69,6 +69,8 @@ Although you can simply execute it as is, there are currently three parameters.<
 
 **@ShowHighOnly** - the default is 0, which returns all findings. If you only want to focus on the most important findings, you can reduce the result set by setting this to 1.<p>
 
+**@PreferredDBOwner** - the default is 'sa', but use this parameter if you have a preferred server principal that you want as the owner of databases.<p>
+
 **@CheckLocalAdmin** - the default is 0, which does not check the members of the local Windows Administrators group. Because this is a powerful group, we recommend setting this to 1 to determine who is in the local Administrators group, however…<p>
 
 ### *** WARNING ***<p>
