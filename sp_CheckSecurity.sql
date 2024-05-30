@@ -1,5 +1,3 @@
-USE master;
-
 IF OBJECT_ID('dbo.sp_CheckSecurity') IS NULL
   EXEC ('CREATE PROCEDURE dbo.sp_CheckSecurity AS RETURN 0;');
 GO
@@ -8,59 +6,41 @@ GO
 ALTER PROCEDURE dbo.sp_CheckSecurity
     @ShowHighOnly BIT = 0
 	, @CheckLocalAdmin BIT = 0
+    , @PreferredDBOwner NVARCHAR(255) = NULL
 	, @Help BIT = 0
 
 WITH RECOMPILE
 AS
 SET NOCOUNT ON;
 
-/*This script currently checks:*/
+DECLARE 
+    @Version VARCHAR(10) = NULL
+	, @VersionDate DATETIME = NULL
 
-/***** Instance version *****/
-/* server and instance name */
-/* communication protocol */
-/* service accounts used */
-/* encrypted and unecrypted databases */
-/* remote dedicated admin connections enabled */
-/* unsupported versions and builds */
-/* security updates */
+SELECT
+    @Version = '1.1'
+    , @VersionDate = '20240530';
 
+/*
+Changes in version 1.1 include:
+    Added notation of version and version date
+    Added check for Ad Hoc Distributed Queries
+    Added check for Database Mail XPs
+    Added check for Ole Automation Procedures
+    Added check for number of error log files
+    Added of @PreferredDBOwner parameter
+    Added default for @PreferredDBOwner is "sa" (or whatever it was renamed to) if @PreferredDBOwner is NULL
+    Updated "database owner not sa" check to "database owner not preferred owner"
+    Added of check for IP address
+    Added of check for Database Mail XPs
+    Updated vulnerability level for securityadmin members
+    Updated TRUSTWORTHY database check into two checks based on owner permission level
+    Updated vulnerability level of role members in master databases
+    Updated check for recent for product level including recent vulnerability updates (GDRs)
+    Removed requirement to create sp_CheckSecurity in the master database
+    Corrected some typos here and there
+*/
 
-/***** Instance logins *****/
-/* sa is enabled */
-/* sysadmin members */
-/* securityadmin members */
-/* CONTROL SERVER permissions */
-/* local Administrators members */
-/* invalid Windows logins */
-/* password vulnerabilites */
-
-
-/***** Instance settings *****/
-/* CLR enabled */
-/* xp_cmdshell enabled */
-/* cross-database ownership chaining */
-/* jobs owned by users */
-/* stored procedures that run at startup */
-/* jobs that run at startup */
-/* TDE certificate backup and expiration dates*/
-/* database backup certificate backup and expiration dates */
-/* linked servers */
-/* endpoint ownership */
-/* sql server audits */
-/* database owner is not sa */
-/* database owner is unknown */
-/* sql login audit includes failed logins */
-/* failed logins */
-
-/***** Database settings *****/
-/* TRUSTWORTHY setting */
-/* db_owner role members */
-/* unusual database permissions */
-/* roles within roles in each database */
-/* orphan logins in each database */
-/* database owner is different from owner in master */
-/* explicit permissions granted to the Public role */
 
 
 SET NOCOUNT ON;
@@ -94,6 +74,9 @@ IF @Help = 1 BEGIN
                      0=All discovered vulnerabilities(DEFAULT)
     @CheckLocalAdmin 1=Check members of local Administrators
                      0=Do NOT check members of local Administrators(DEFAULT)
+    @PreferredDBOwner (This can be whatever login you prefer to have as the owner
+                       of your databases. By default, it will be the sa login
+                       or whatever that login was renamed.)
     
 
     *** WARNING FOR @CheckLocalAdmin usage ***
@@ -221,7 +204,7 @@ SELECT
 	, @SQLVersionMinor = PARSENAME(CONVERT(varchar(32), @SQLVersion), 2);
 
 /* check for unsupported version */	
-IF @SQLVersionMajor < 11 BEGIN
+IF @SQLVersionMajor < 10.5 BEGIN
 	PRINT '
 /*
     *** Unsupported SQL Server Version ***
@@ -258,10 +241,22 @@ SELECT
 	, COALESCE(@ComputerNamePhysicalNetBIOS,'')
 	+ '\' + COALESCE(@InstanceName, '(default instance)')
 	+ ', SQL Server ' + VersionName +  ' ' + @Edition
-	, '(Information captured on ' + CONVERT(VARCHAR(100), GETDATE(), 101) + ')'
+	, '(Information captured on ' + CONVERT(VARCHAR(100), GETDATE(), 101) + ' using version ' + @Version + ')'
 	, ''
 FROM #SQLVersions
 WHERE VersionNumber = @SQLVersionMajor;
+
+
+/* IP address */
+INSERT #Results
+SELECT 
+	0
+	, 'Information only'
+	, 'SQL Server IP address'
+	, NULL
+	, 'The IP address for this SQL Server instance is ' + COALESCE(CONVERT(VARCHAR(15), CONNECTIONPROPERTY('local_net_address')), 'UNKNOWN')
+	, 'Check to make sure is not an externally-facing server and this IP address cannot be reached outside your network.'
+	, 'https://straightpathsql.com/cs/ip-address'
 
 
 /* remote admin connections */
@@ -280,6 +275,25 @@ SELECT
 	, 'https://straightpathsql.com/cs/remote-admin-connections'
 FROM sys.configurations
 WHERE [name] = 'remote admin connections'
+
+
+/* Database Mail XPs */
+INSERT #Results
+SELECT 
+	0
+	, 'Information only'
+	, 'Database Mail XPs'
+	, NULL
+	, 'Database Mail XPs are currently ' 
+	+  CASE value_in_use
+		WHEN 1 THEN 'ENABLED.'
+		ELSE 'DISABLED.'
+		END
+	, 'Enabling Database Mail XPs can be useful, but be aware if your instance is breached they could be used to initiate a Denial Of Service attack.'
+	, 'https://straightpathsql.com/cs/database-mail-xps'
+FROM sys.configurations
+WHERE [name] = 'Database Mail XPs'
+
 
 
 
@@ -302,13 +316,14 @@ IF SERVERPROPERTY('EngineEdition') <> 8 /* Azure Managed Instances */ BEGIN
 	
 /* check for security update */
 IF SERVERPROPERTY('EngineEdition') <> 8 /* Azure Managed Instances */ BEGIN
-	IF (@SQLVersionMajor = 10 AND @SQLVersionMinor < 6556) OR
-		(@SQLVersionMajor = 10.5 AND @SQLVersionMinor < 6560) OR
-		(@SQLVersionMajor = 11 AND @SQLVersionMinor < 7507) OR
-		(@SQLVersionMajor = 12 AND @SQLVersionMinor < 6439) OR
-		(@SQLVersionMajor = 13 AND @SQLVersionMinor < 6419) OR
-		(@SQLVersionMajor = 14 AND @SQLVersionMinor < 3445) OR
-		(@SQLVersionMajor = 15 AND @SQLVersionMinor < 4236) 
+	IF (@SQLVersionMajor = 10 AND @SQLVersionMinor < 6814) OR
+		(@SQLVersionMajor = 10.5 AND @SQLVersionMinor < 6785) OR
+		(@SQLVersionMajor = 11 AND @SQLVersionMinor < 7512) OR
+		(@SQLVersionMajor = 12 AND @SQLVersionMinor < 6449) OR
+		(@SQLVersionMajor = 13 AND @SQLVersionMinor < 6435) OR
+		(@SQLVersionMajor = 14 AND @SQLVersionMinor < 3465) OR
+		(@SQLVersionMajor = 15 AND @SQLVersionMinor < 4360) OR
+		(@SQLVersionMajor = 16 AND @SQLVersionMinor < 4120) 
 	INSERT #Results
 	SELECT 
 		1
@@ -425,11 +440,11 @@ AND l.name <> 'l_certSignSmDetach'; /* Added in SQL 2016 */
 /* securityadmin members */
 INSERT #Results
 SELECT  
-	3
-	, 'Potential - review recommended'
+	2
+	, 'High - review required'
 	, 'Security Admins'  
 	, NULL
-	, 'Login [' + l.name + '] is a security admin. They can give themselves permission to do anything in SQL Server, including dropping databases or changing other permissions.' 
+	, 'Login [' + l.name + '] is a security admin. They can create other logins that do anything in SQL Server, including dropping databases or changing other permissions.' 
 	, 'Review the list of logins and groups in the securityadmin role to verify the require for these elevated permissions.'
 	, 'https://straightpathsql.com/cs/securityadmin'
 FROM master.sys.syslogins l
@@ -546,7 +561,7 @@ SELECT
 		ELSE 'A CLR assembly created with PERMISSION_SET = SAFE may be able to access external system resources, call unmanaged code, and acquire sysadmin privileges.' 
 		END
     , 'https://straightpathsql.com/cs/clr-enabled'
-FROM master.sys.configurations l
+FROM master.sys.configurations
 WHERE [name] = 'clr enabled'
 AND value_in_use = 1;
 
@@ -561,8 +576,23 @@ SELECT
 	, 'xp_cmdshell allows for the execution of operating system commands in the context of the SQL Server account by members of the sysadmin role.' 
 	, 'If you do not have any code requiring xp_cmdshell, disable this configuration option.'
     , 'https://straightpathsql.com/cs/xp-cmdshell'
-FROM master.sys.configurations l
+FROM master.sys.configurations
 WHERE [name] = 'xp_cmdshell'
+AND value_in_use = 1;
+
+
+/* Ole Automation Procedures enabled */
+INSERT #Results
+SELECT  
+	3
+	, 'Potential - review recommended'
+	, 'Ole Automation Procedures enabled'  
+	, NULL
+	, 'The ''Ole Automation Procedures'' configuration allows a call to create and execute functions in the context of SQL Server.' 
+	, 'If you do not have any code requiring OLE Automation objects, disable this configuration option.'
+    , 'https://straightpathsql.com/cs/ole-automation-procedures'
+FROM master.sys.configurations
+WHERE [name] = 'Ole Automation Procedures'
 AND value_in_use = 1;
 
 
@@ -576,8 +606,23 @@ SELECT
 	, 'Cross-database ownership chaining allows database owners and members of the db_ddladmin and db_owners database roles to create objects that are owned by other users.' 
 	, 'Since enabling this setting allows certain users to create objects can potentially target objects in other databases, this configuration option should be enabled only at the database level.'
     , 'https://straightpathsql.com/cs/cross-db-ownership-chaining'
-FROM master.sys.configurations l
+FROM master.sys.configurations
 WHERE [name] = 'cross db ownership chaining'
+AND value_in_use = 1;
+
+
+/* ad hoc distributed queries */
+INSERT #Results
+SELECT 
+	3
+	, 'Potential - review recommended'
+	, 'Ad Hoc Distributed Queries is enabled.'
+	, NULL
+	, 'Ad hoc distributed queries use the OPENROWSET and OPENDATASOURCE functions to connect to remote data sources that use OLE DB.' 
+	, 'If a malicious user was able to utilize SQL injection, having this option enabled would allow them to read data files of their choosing.'
+	, 'https://straightpathsql.com/cs/ad-hoc-distributed-queries'
+FROM sys.configurations 
+WHERE [name] = 'Ad Hoc Distributed Queries'
 AND value_in_use = 1;
 
 
@@ -812,23 +857,22 @@ AND [name] NOT LIKE '%SQLBeacon%' /* for SQL Beacon */
 
 
 /* database owner is not sa */
-DECLARE @UsualDBOwner sysname = NULL
-
-SET @UsualDBOwner = SUSER_SNAME(0x01);
+IF @PreferredDBOwner IS NULL
+    SET @PreferredDBOwner = SUSER_SNAME(0x01);
 
 INSERT #Results
 SELECT
 	4
 	, 'Low - action recommended'
-	, 'Database owner is not ' + @UsualDBOwner 
+	, 'Database owner is not preferred owner'
 	, [name]
 	, 'The database ' + [name]
 		+ ' is owned by ' + SUSER_SNAME(owner_sid) 
 	, 'Verify this is the correct owner, because if this login is disabled or not available due to Active Directory problems then database accessability could be affected.'
-    , 'https://straightpathsql.com/cs/database-owner-not-sa'
+    , 'https://straightpathsql.com/cs/database-owner-is-not-preferred-owner'
 FROM sys.databases
 WHERE (((SUSER_SNAME(owner_sid) <> SUSER_SNAME(0x01)) AND (name IN (N'master', N'model', N'msdb', N'tempdb')))
-OR ((SUSER_SNAME(owner_sid) <> @UsualDBOwner) AND (name NOT IN (N'master', N'model', N'msdb', N'tempdb'))))
+OR ((SUSER_SNAME(owner_sid) <> @PreferredDBOwner) AND (name NOT IN (N'master', N'model', N'msdb', N'tempdb'))))
 
 
 /* database owner is unknown */
@@ -852,10 +896,10 @@ INSERT #Results
 SELECT 
 	0
 	, 'Information only'
-	, 'SQL Server service account'
+	, 'Service account for SQL Server'
 	, NULL
-	, 'The SQL Server service is running with the following account: ' + service_account
-	, 'We recommend using managed serice accounts if possible to reduce vulnerabilty.'
+	, 'The SQL Server service is running with the account: ' + service_account
+	, 'We recommend using managed service accounts if possible to reduce vulnerabilty.'
     , 'https://straightpathsql.com/cs/sql-server-service-account'
 FROM sys.dm_server_services 
 WHERE servicename like 'SQL Server (%'
@@ -866,10 +910,10 @@ INSERT #Results
 SELECT
 	0
 	, 'Information only'
-	, 'SQL Agent service account'
+	, 'Service Account for SQL Agent'
 	, NULL
-	, 'The SQL Agent service is running with the following account: ' + service_account
-	, 'We recommend using managed serice accounts if possible to reduce vulnerabilty.'
+	, 'The SQL Agent service is running with the account: ' + service_account
+	, 'We recommend using managed service accounts if possible to reduce vulnerabilty.'
     , 'https://straightpathsql.com/cs/sql-server-service-account'
 FROM sys.dm_server_services 
 WHERE servicename like 'SQL Server Agent%'
@@ -887,6 +931,8 @@ SELECT
 		ELSE '.' END
 	, 'If using the TCP protocol, port 1433 is the default.'
 	, ''
+
+
 /* Check that SQL Login Audit includes failed logins */
 DECLARE @AuditValue int
 
@@ -934,9 +980,48 @@ IF @FailedLogins > 0
 	    ,'https://straightpathsql.com/cs/failed-logins'
 
 
+/* number of error logs */
+DECLARE @NumErrorLogs INT;
+
+EXEC master.sys.xp_instance_regread
+    N'HKEY_LOCAL_MACHINE'
+	, N'Software\Microsoft\MSSQLServer\MSSQLServer'
+	, N'NumErrorLogs'
+	, @NumErrorLogs OUTPUT;
+
+IF (SELECT ISNULL(@NumErrorLogs, 12)) < 12 
+	INSERT #Results
+	SELECT 
+		2
+		, 'High - review required'
+		, 'To few SQL Server error log files'
+		, NULL
+		, 'This instance is configured for only ' + CONVERT(VARCHAR(10), (ISNULL(@NumErrorLogs, -1))) + ' SQL Server error log files.'
+		, 'We recommend having between 12 and 52 SQL Server error log files to review for patterns of login failures or suspect IP addresses which may indicate hacking attempts.'
+	    , 'https://straightpathsql.com/cs/number-of-sql-server-error-log-files'
+
+
+/* default trace disabled */
+
+
 /***** Database settings *****/
 
 /* TRUSTWORTHY setting check */
+INSERT #Results
+SELECT 
+    1
+    , 'High - action required'
+	, 'TRUSTWORTHY database owned by sysadmin'
+	, db_name(database_id)
+	, 'The database ' + db_name(database_id) + ' has the TRUSTWORTHY setting enabled and is owned by a member of the sysadmin role.'
+	, 'With TRUSTORWORTHY setting ON and a sysadmin database owner, any user can execute commands as a sysadmin.'
+	, 'https://straightpathsql.com/cs/trustworthy-enabled'
+FROM sys.databases
+WHERE database_id > 4
+    AND is_trustworthy_on = 1
+    AND IS_SRVROLEMEMBER ('sysadmin', SUSER_SNAME(owner_sid)) = 1
+
+
 INSERT #Results
 SELECT 
 	2
@@ -948,7 +1033,8 @@ SELECT
 	, 'https://straightpathsql.com/cs/trustworthy-enabled'
 FROM sys.databases
 WHERE database_id > 4
- AND is_trustworthy_on = 1
+    AND is_trustworthy_on = 1
+    AND IS_SRVROLEMEMBER ('sysadmin', SUSER_SNAME(owner_sid)) = 0
 
 
 /* db_owner role member */
@@ -964,6 +1050,14 @@ FROM (SELECT memberuid = convert(int, member_principal_id), groupuid = convert(i
 INSERT #Results
 EXEC sp_MSforeachdb @SQL
 
+UPDATE #Results
+SET
+    VulnerabilityLevel = 1
+	, Vulnerability = 'High - action required'
+	, Issue = 'db_owner role member - system databases'
+WHERE Issue = 'db_owner role member'
+AND DatabaseName IN ('master','msdb')
+
 
 /* unusual database permissions */
 SET @SQL = 'USE [?]; 
@@ -977,6 +1071,14 @@ FROM (SELECT memberuid = convert(int, member_principal_id), groupuid = convert(i
 
 INSERT #Results
 EXEC sp_MSforeachdb @SQL
+
+UPDATE #Results
+SET
+    VulnerabilityLevel = 1
+	, Vulnerability = 'High - action required'
+	, Issue = 'Unusual database permissions - system databases'
+WHERE Issue = 'Unusual database permissions'
+AND DatabaseName IN ('master','msdb')
 
 
 /* find roles within roles in each database */
