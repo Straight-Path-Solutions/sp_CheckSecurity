@@ -236,7 +236,7 @@ INSERT #Results
 SELECT 
 	0
 	, 'Information only'
-	, ' SQL Server name and version'
+	, 'SQL Server name and version'
 	, NULL
 	, COALESCE(@ComputerNamePhysicalNetBIOS,'')
 	+ '\' + COALESCE(@InstanceName, '(default instance)')
