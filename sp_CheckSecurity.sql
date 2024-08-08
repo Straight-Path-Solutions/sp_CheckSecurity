@@ -162,7 +162,8 @@ DECLARE
 	, @ComputerNamePhysicalNetBIOS NVARCHAR(128)
 	, @ServerZeroName SYSNAME
 	, @InstanceName NVARCHAR(128)
-	, @Edition NVARCHAR(128);
+	, @Edition NVARCHAR(128)
+	, @DatabaseName NVARCHAR(128);
 
 IF OBJECT_ID('tempdb..#Results') IS NOT NULL
 	DROP TABLE #Results;
@@ -170,7 +171,7 @@ IF OBJECT_ID('tempdb..#Results') IS NOT NULL
 CREATE TABLE #Results (
 	VulnerabilityLevel TINYINT
 	, Vulnerability VARCHAR(50)
-	, Issue VARCHAR(50)
+	, Issue VARCHAR(100)
 	, DatabaseName NVARCHAR(255)
 	, Details NVARCHAR(4000)
 	, ActionStep NVARCHAR(1000)
@@ -717,6 +718,38 @@ SELECT
 FROM sys.certificates c 
 INNER JOIN sys.dm_database_encryption_keys d 
 	ON c.thumbprint = d.encryptor_thumbprint;
+
+		
+/* check DMK encryption algorithm */
+DECLARE db_cursor CURSOR FOR
+SELECT name
+FROM sys.databases
+WHERE state_desc = 'ONLINE' AND database_id <> 2;
+OPEN db_cursor;
+FETCH NEXT FROM db_cursor INTO @DatabaseName;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @SQL = N'
+    USE [' + @DatabaseName + '];
+    
+        INSERT INTO #Results
+        SELECT DISTINCT
+                3
+                , ''Potential - review recommended''
+                , ''Database Master Key uses legacy encryption algorithm''
+                , DB_NAME()
+                , ''The Database Master Key ['' + name + ''] used for encryption in '' + DB_NAME() + '' uses the encryption algorithm '' + algorithm_desc COLLATE DATABASE_DEFAULT + ''.''
+                , ''The Database Master Key should be regenerated to use the more secure AES_256 algorithm.''
+                , ''https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-master-key-transact-sql?view=sql-server-ver16''
+    FROM sys.symmetric_keys
+        WHERE algorithm_desc <> ''AES_256''
+                AND symmetric_key_id = 101;
+        ';
+    EXEC sp_executesql @SQL;
+    FETCH NEXT FROM db_cursor INTO @DatabaseName;
+END
+CLOSE db_cursor;
+DEALLOCATE db_cursor;
 
 
 /* check for database backup certificate backup */
