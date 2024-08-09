@@ -719,6 +719,21 @@ INNER JOIN sys.dm_database_encryption_keys d
 	ON c.thumbprint = d.encryptor_thumbprint;
 
 
+/* check TDE key algorithm and key length */
+INSERT #Results
+SELECT
+	3
+	, 'Potential - review recommended'
+	, 'TDE uses legacy encryption algorithm'
+	, d.name
+	, 'The TDE encryption for database ' + d.name + ' uses the encryption algorithm ' + dek.key_algorithm + ' with a key length of ' + CAST(dek.key_length AS CHAR(4))
+	, 'The database encryption key should be regenerated to use the more secure AES_256 algorithm.'
+	, 'https://learn.microsoft.com/en-us/sql/relational-databases/security/encryption/choose-an-encryption-algorithm?view=sql-server-ver16'
+FROM sys.dm_database_encryption_keys dek
+	RIGHT JOIN master.sys.databases d ON d.database_id = dek.database_id
+WHERE dek.key_algorithm <> 'AES' or dek.key_length <> '256'
+
+
 /* check for database backup certificate backup */
 IF @SQLVersionMajor >= 12 BEGIN
 	SET @SQL = '
