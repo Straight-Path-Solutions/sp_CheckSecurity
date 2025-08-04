@@ -1156,7 +1156,7 @@ EXEC sp_MSforeachdb @SQL
 
 /* explicit permissions granted to the Public role */
 IF @SQLVersionMajor >= 12 BEGIN
-	DECLARE @DB_Name VARCHAR(256) 
+	DECLARE @DB_Name sysname
 
 	DECLARE public_cursor CURSOR FOR
 		SELECT name 
@@ -1265,3 +1265,4 @@ IF @ShowHighOnly = 0
     FROM #Results 
     ORDER BY 1, 2, 3, 4, 5
     
+
