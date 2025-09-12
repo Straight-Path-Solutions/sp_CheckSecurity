@@ -67,7 +67,7 @@ Although you can simply execute it as is, there are currently five parameters.<p
   
 **@help** - the default is 0, but setting this to 1 will return some helpful information about sp_CheckSecurity and its usage in case you aren't able to read this web page.<p>
 
-**@Mode** - the default is 99, which returns all findings as well as additional information. @Mode = 0 will return issues only, and @Mode = 1 will show only the highest importance vulnerabilites.<p>
+**@Mode** - the default is 99, which returns all findings as well as additional information. @Mode = 0 will return issues only, and @Mode = 1 will show only the the most important vulnerabilities.<p>
 
 **@PreferredDBOwner** - the default is 'sa', but use this parameter if you have a preferred server principal that you want as the owner of databases.<p>
 
