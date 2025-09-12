@@ -7,7 +7,7 @@ Here at Straight Path Solutions, we're big fans of community tools like [sp_WhoI
 
 # What does sp_CheckSecurity do?
 
-Maybe you have some scripts you found on the internet to check some security settings or look for odd permissions. Or maybe you don't. Well, here's what sp_CheckSecurity checks.<p>
+Maybe you have some scripts you found on the internet to check some security settings or look for odd permissions. Or maybe you don't. Well, here's some of what sp_CheckSecurity checks.<p>
 
   **Instance information** <br>
 	• Server and instance name<br>
@@ -56,7 +56,7 @@ Maybe you have some scripts you found on the internet to check some security set
 	• TRUSTWORTHY database<br>
 	• Unusual database permissions<p>
 
-After completing all these checks, you will get a single result set with any issues found, ordered by vulnerability level. Each row will identify what we found, why it is a (potential) issue, what our recommendation for resolving the issue is, and a link for more information about the issue.
+But there's more - over 70 checks in the latest version! After completing all these checks, you will get a single result set with any issues found, ordered by Importance (vulnerability) level. Each row will identify what we found, why it is a (potential) issue, what our recommendation for resolving the issue is, and a link for more information about the issue.
 
 
 # How do I use it?
@@ -67,11 +67,13 @@ Although you can simply execute it as is, there are currently three parameters.<
   
 **@help** - the default is 0, but setting this to 1 will return some helpful information about sp_CheckSecurity and its usage in case you aren't able to read this web page.<p>
 
-**@ShowHighOnly** - the default is 0, which returns all findings. If you only want to focus on the most important findings, you can reduce the result set by setting this to 1.<p>
+**@Mode** - the default is 99, which returns all findings as well as additional information. @Mode = 0 will return issues only, and @Mode = 1 will show only the highest importance vulnerabilites.<p>
 
 **@PreferredDBOwner** - the default is 'sa', but use this parameter if you have a preferred server principal that you want as the owner of databases.<p>
 
 **@CheckLocalAdmin** - the default is 0, which does not check the members of the local Windows Administrators group. Because this is a powerful group, we recommend setting this to 1 to determine who is in the local Administrators group, however…<p>
+
+**@Override** - the default is 0, which will return a warning if you try to run this on an instance with more than 50 databases. Using @Override = 1 will complete the checks on these instances.<p>
 
 ### *** WARNING ***<p>
 
@@ -84,17 +86,15 @@ Although you can simply execute it as is, there are currently three parameters.<
 <p>
 We note this because if you have ANY database level triggers or other fun features enabled to track the addition of members to Logins then you, dear user, assume any responsibility for any subsequent action from this brief addition. Please don't say we didn't warn you.
 
-# What do the Vulnerability Levels mean?
+# What do the Importance Levels mean?
 
 **0 - Information only**. This is stuff you should know about your instances like version and service account used, but if you don't know it…well, now you do.<p>
 
-**1 - High vulnerability requiring action**. These are the issues that could most likely lead to your company being front page news for all the wrong reasons. If your instances have any results at this level then we recommend cancelling that 3-martini lunch and instead huddling with your team to figure out when to address these issues.<p>
+**1 - High vulnerability requiring action or review**. These are the issues that could most likely lead to your company being front page news for all the wrong reasons. If your instances have any results at this level then we recommend cancelling that 3-martini lunch and instead huddling with your team to figure out when to address these issues. This also includes settings and assigned permissions you should review soon, if not immediately. These findings may not necessarily indicate a clear vulnerability, but we've found unexpected vulnerabilities in these categories at many, many clients.<p>
 
-**2 - High vulnerability to review**. These include settings and assigned permissions you should review soon, if not immediately. These findings may not necessarily indicate a clear vulnerability, but we've found unexpected vulnerabilities in these categories at many, many clients.<p>
+**2 - Potential vulnerability to review**. These are configurations or assigned permissions you may be using that could lead to problems for users. Or maybe they're just required for your applications. Either way, we recommend reviewing these to make sure these are correct.<p>
 
-**3 - Potential vulnerability to review**. These are configurations or assigned permissions you may be using that could lead to problems for users. Or maybe they're just required for your applications. Either way, we recommend reviewing these to make sure these are correct.<p>
-
-**4 – Low vulnerability with recommended action**. These are typically security inconsistencies that should be addressed. They aren't likely to cause problems, but you should clean up the mess.
+**3 – Low vulnerability with recommended action**. These are typically security inconsistencies that should be addressed. They aren't likely to cause problems, but you should clean up the mess.
 
 # What are the requirements to use sp_CheckSecurity?
 
