@@ -63,13 +63,11 @@ But there's more - over 70 checks in the latest version! After completing all th
  
 Execute the script to create sp_CheckSecurity in the database of your choice, although we would recommend the master so you can call it from the context of any database.
 <p>
-Although you can simply execute it as is, there are currently three parameters.<p>
+Although you can simply execute it as is, there are currently four parameters.<p>
   
 **@help** - the default is 0, but setting this to 1 will return some helpful information about sp_CheckSecurity and its usage in case you aren't able to read this web page.<p>
 
 **@Mode** - the default is 99, which returns all findings as well as additional information. @Mode = 0 will return issues only, and @Mode = 1 will show only the highest importance vulnerabilites.<p>
-
-**@PreferredDBOwner** - the default is 'sa', but use this parameter if you have a preferred server principal that you want as the owner of databases.<p>
 
 **@CheckLocalAdmin** - the default is 0, which does not check the members of the local Windows Administrators group. Because this is a powerful group, we recommend setting this to 1 to determine who is in the local Administrators group, however…<p>
 
