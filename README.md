@@ -71,9 +71,9 @@ Although you can simply execute it as is, there are currently five parameters.<p
 
 **@PreferredDBOwner** - the default is 'sa', but use this parameter if you have a preferred server principal that you want as the owner of databases.<p>
 
-**@CheckLocalAdmin** - the default is 0, which does not check the members of the local Windows Administrators group. Because this is a powerful group, we recommend setting this to 1 to determine who is in the local Administrators group, however…<p>
-
 **@Override** - the default is 0, which will return a warning if you try to run this on an instance with more than 50 databases. Using @Override = 1 will complete the checks on these instances.<p>
+
+**@CheckLocalAdmin** - the default is 0, which does not check the members of the local Windows Administrators group. Because this is a powerful group, we recommend setting this to 1 to determine who is in the local Administrators group, however…<p>
 
 ### *** WARNING ***<p>
 
