@@ -69,7 +69,7 @@ Although you can simply execute it as is, there are currently five parameters.<p
 
 **@Mode** - the default is 99, which returns all findings as well as additional information. @Mode = 0 will return issues only, and @Mode = 1 will show only the the most important vulnerabilities.<p>
 
-**@PreferredDBOwner** - Uuse this parameter if you have a preferred server principal that you want as the owner of databases. If no value is supplied then this check is skipped.<p>
+**@PreferredDBOwner** - Use this parameter if you have a preferred server principal that you want as the owner of databases. If no value is supplied then this check is skipped.<p>
 
 **@Override** - the default is 0, which will return a warning if you try to run this on an instance with more than 50 databases. Using @Override = 1 will complete the checks on these instances.<p>
 
