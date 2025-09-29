@@ -19,8 +19,8 @@ DECLARE
 	, @VersionDate DATETIME = NULL
 
 SELECT
-    @Version = '2.1'
-    , @VersionDate = '20250829';
+    @Version = '2.11'
+    , @VersionDate = '20250925';
 
 /*
 Changes in version 1.1 include:
@@ -76,6 +76,10 @@ Changes in version 2.1 include:
 	Added check for service account in sysadmin role
 	Added check for "view any database" in public role
 	Grouped configurations in output results with naming convention "Configuration:"
+
+Changes in version 2.11 include:
+	Change so @PreferredDBOwner not checked if NULL
+	Update version checks for September 2025 security updates
 */
 
 
@@ -115,8 +119,8 @@ IF @Help = 1 BEGIN
                      0=Do NOT check members of local Administrators(DEFAULT)
     
 	@PreferredDBOwner (This can be whatever login you prefer to have as the owner
-                       of your databases. By default, it will be the sa login
-                       or whatever that login was renamed.)
+                       of your databases. By default, it will be NULL and will
+                       not check unless you provide a preferred owner login.)
     
 	@Override for allowing checks on instances of over 50 databases
 
@@ -495,7 +499,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 
 	/* check for supported versions */
 	IF SERVERPROPERTY('EngineEdition') <> 8 /* Azure Managed Instances */ BEGIN
-		IF @SQLVersionMajor < 12
+		IF @SQLVersionMajor < 13
 
 		INSERT #Results
 		SELECT 
@@ -517,10 +521,10 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 	IF SERVERPROPERTY('EngineEdition') <> 8 /* Azure Managed Instances */ BEGIN
 		IF ((@SQLVersionMajor = 11 AND @SQLVersionMinor < 7507) OR
 			(@SQLVersionMajor = 12 AND @SQLVersionMinor < 6449) OR
-			(@SQLVersionMajor = 13 AND @SQLVersionMinor < 6465) OR
-			(@SQLVersionMajor = 14 AND @SQLVersionMinor < 3500) OR
-			(@SQLVersionMajor = 15 AND @SQLVersionMinor < 4440) OR
-			(@SQLVersionMajor = 16 AND @SQLVersionMinor < 4210) )
+			(@SQLVersionMajor = 13 AND @SQLVersionMinor < 6470) OR
+			(@SQLVersionMajor = 14 AND @SQLVersionMinor < 3505) OR
+			(@SQLVersionMajor = 15 AND @SQLVersionMinor < 4445) OR
+			(@SQLVersionMajor = 16 AND @SQLVersionMinor < 4212) )
 
 		INSERT #Results
 		SELECT 
@@ -1190,25 +1194,25 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 
 
 	/* database owner is not preferred owner */
-	IF @PreferredDBOwner IS NULL
-		SET @PreferredDBOwner = SUSER_SNAME(0x01);
+	IF @PreferredDBOwner IS NOT NULL BEGIN
 
-	INSERT #Results
-	SELECT 
-		3
-		, 327
-		, 2
-		, 'Database owner is not preferred'
-		, 'The database owner is not the preferred owner.'
-		, [name]
-		, 'The database ' + [name]
-			+ ' is owned by ' + SUSER_SNAME(owner_sid) 
-		, 'Verify this is the correct owner, because if this login is disabled or not available due to Active Directory problems then database accessability could be affected.'
-		, 'https://straightpathsql.com/cs/database-owner-is-not-preferred-owner'
-	FROM sys.databases
-	WHERE (((SUSER_SNAME(owner_sid) <> SUSER_SNAME(0x01)) AND (name IN (N'master', N'model', N'msdb', N'tempdb')))
-	OR ((SUSER_SNAME(owner_sid) <> @PreferredDBOwner) AND (name NOT IN (N'master', N'model', N'msdb', N'tempdb'))));
+		INSERT #Results
+		SELECT 
+			3
+			, 327
+			, 2
+			, 'Database owner is not preferred'
+			, 'The database owner is not the preferred owner.'
+			, [name]
+			, 'The database ' + [name]
+				+ ' is owned by ' + SUSER_SNAME(owner_sid) 
+			, 'Verify this is the correct owner, because if this login is disabled or not available due to Active Directory problems then database accessability could be affected.'
+			, 'https://straightpathsql.com/cs/database-owner-is-not-preferred-owner'
+		FROM sys.databases
+		WHERE (((SUSER_SNAME(owner_sid) <> SUSER_SNAME(0x01)) AND (name IN (N'master', N'model', N'msdb', N'tempdb')))
+		OR ((SUSER_SNAME(owner_sid) <> @PreferredDBOwner) AND (name NOT IN (N'master', N'model', N'msdb', N'tempdb'))));
 
+		END;
 
 	/* database owner is member of sysadmin role */
 	INSERT #Results
@@ -1885,4 +1889,3 @@ IF @Mode = 0
 		, CheckName
         , DatabaseName
         , Details;
-
