@@ -9,82 +9,32 @@ ALTER PROCEDURE dbo.sp_CheckSecurity
 	, @PreferredDBOwner NVARCHAR(255) = NULL
 	, @Override BIT = 0
 	, @Help BIT = 0
+	, @VersionCheck BIT = 0
 
 WITH RECOMPILE
 AS
 SET NOCOUNT ON;
+
+SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
 DECLARE 
     @Version VARCHAR(10) = NULL
 	, @VersionDate DATETIME = NULL
 
 SELECT
-    @Version = '2.11'
-    , @VersionDate = '20250925';
+    @Version = '2026.2.1'
+    , @VersionDate = '20260219';
 
-/*
-Changes in version 1.1 include:
-	Added notation of version and version date
-	Added check for Ad Hoc Distributed Queries
-	Added check for Database Mail XPs
-	Added check for Ole Automation Procedures
-	Added check for number of error log files
-	Added of @PreferredDBOwner parameter
-	Added default for @PreferredDBOwner is "sa" (or whatever it was renamed to) if @PreferredDBOwner is NULL
-	Updated "database owner not sa" check to "database owner not preferred owner"
-	Added of check for IP address
-	Added of check for Database Mail XPs
-	Updated vulnerability level for securityadmin members
-	Updated TRUSTWORTHY database check into two checks based on owner permission level
-	Updated vulnerability level of role members in master databases
-	Updated check for recent for product level including recent vulnerability updates (GDRs)
-	Removed requirement to create sp_CheckSecurity in the master database
-	Corrected some typos here and there
+/* Version check */
+IF @VersionCheck = 1 BEGIN
 
-Changes in version 2.0 include:
-	Added Check IDs
-	Changed 4 Vulnerability levels to 3
-	Added @Mode parameter, removed @ShowHighOnly parameter
-	@ShowHighOnly replaced by @Mode = 1
-	Added check for SQL Server service using built-in elevated account
-	Added check for databases owned by members of the sysadmin role
-	Added check for renamed sa login
-	Updated check for CLR Enabled to account for SSIS Catalog installation
-	Updated check for recent for product level including recent vulnerability updates (GDRs)
-	Updated Linked Server detection logic
-	Corrected more typos
+	SELECT
+		@Version AS VersionNumber
+		, @VersionDate AS VersionDate
 
-Changes in version 2.01 include:
-	Corrected incorrect text in Check 310 (remote admin connections)
-	Corrected incorrect text in Check 311 (database mail XPs)
-	Improved performance of Check 210 (Database backup certificate never been backed up)
-	Improved performance of Check 212 (Database backup certificate set to expire)
-	Added CheckID to all results
+	RETURN;
+	END;  
 
-Changes in version 2.1 include:
-	Added @Override parameter for instances with more than 50 databases
-	Updated version check to account for August 2025 security updates
-	Added check for C2 audit mode enabled 
-	Added check for Common Criteria Compliance enabled
-	Added check for Contained Database Authentication enabled
-	Added check for contained databases
-	Added check if Remote Access is enabled
-	Added check for databases owned by Windows logins
-	Added check if Hide Instance is enabled
-	Added check if Extended Protection is enabled
-	Added check if Force Encryption is enabled
-	Added check for service account in sysadmin role
-	Added check for "view any database" in public role
-	Grouped configurations in output results with naming convention "Configuration:"
-
-Changes in version 2.11 include:
-	Change so @PreferredDBOwner not checked if NULL
-	Update version checks for September 2025 security updates
-*/
-
-
-
-SET NOCOUNT ON;
 
 /* @Help = 1 */
 IF @Help = 1 BEGIN
@@ -158,7 +108,7 @@ IF @Help = 1 BEGIN
     	
     All other copyrights for sp_CheckSecurity are held by Straight Path Solutions.
     
-    Copyright 2025 Straight Path IT Solutions, LLC
+    Copyright 2026 Straight Path IT Solutions, LLC
     
     Permission is hereby granted, free of charge, to any person obtaining a copy
     of this software and associated documentation files (the "Software"), to deal
@@ -183,7 +133,7 @@ IF @Help = 1 BEGIN
 	END;  
 
 /* Check if @Override needed for too many databases */
-IF @Override = 0 AND ((SELECT COUNT(database_id) from sys.databases) > 50) BEGIN
+IF @Override = 0 AND ((SELECT COUNT(database_id) from sys.databases where source_database_id IS NULL) > 50) BEGIN
 	PRINT '
 	You have over 50 databases, so you could have a lot of backup history.
 
@@ -219,7 +169,7 @@ DECLARE
 	, @SQLVersionMajor DECIMAL(10,2)
 	, @SQLVersionMinor DECIMAL(10,2)
 	, @ComputerNamePhysicalNetBIOS NVARCHAR(128)
-	, @ServerZeroName SYSNAME
+	, @ServerZeroName sysname
 	, @InstanceName NVARCHAR(128)
 	, @Edition NVARCHAR(128);
 
@@ -239,7 +189,7 @@ CREATE TABLE #Results (
 CREATE TABLE #Results (
 	CategoryID TINYINT
 	, CheckID INT
-	, Importance TINYINT
+	, [Importance] TINYINT
 	, CheckName VARCHAR(50)
 	, Issue NVARCHAR(1000)
 	, DatabaseName NVARCHAR(255)
@@ -284,7 +234,8 @@ VALUES
 	, ('2016', 13)
 	, ('2017', 14)
 	, ('2019', 15)
-	, ('2022', 16);
+	, ('2022', 16)
+	, ('2025', 17);
 
 /* SQL Server version */
 SELECT @SQLVersion = CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128));
@@ -521,10 +472,11 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 	IF SERVERPROPERTY('EngineEdition') <> 8 /* Azure Managed Instances */ BEGIN
 		IF ((@SQLVersionMajor = 11 AND @SQLVersionMinor < 7507) OR
 			(@SQLVersionMajor = 12 AND @SQLVersionMinor < 6449) OR
-			(@SQLVersionMajor = 13 AND @SQLVersionMinor < 6470) OR
-			(@SQLVersionMajor = 14 AND @SQLVersionMinor < 3505) OR
-			(@SQLVersionMajor = 15 AND @SQLVersionMinor < 4445) OR
-			(@SQLVersionMajor = 16 AND @SQLVersionMinor < 4212) )
+			(@SQLVersionMajor = 13 AND @SQLVersionMinor < 6475) OR
+			(@SQLVersionMajor = 14 AND @SQLVersionMinor < 3515) OR
+			(@SQLVersionMajor = 15 AND @SQLVersionMinor < 4455) OR
+			(@SQLVersionMajor = 16 AND @SQLVersionMinor < 4230) OR
+			(@SQLVersionMajor = 17 AND @SQLVersionMinor < 1050) )
 
 		INSERT #Results
 		SELECT 
@@ -575,7 +527,8 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 		, 'https://straightpathsql.com/cs/unencrypted-databases'
 	FROM sys.databases d
 	WHERE database_id > 4
-		AND NOT EXISTS (SELECT 1 from sys.dm_database_encryption_keys dek where d.database_id = dek.database_id);
+		AND NOT EXISTS (SELECT 1 from sys.dm_database_encryption_keys dek where d.database_id = dek.database_id)
+		AND d.source_database_id IS NULL; /* exclude snapshot databases */
 
 
 /***** Login settings *****/
@@ -656,7 +609,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 		, 'Members of the sysadmin role.'
 		, NULL
 		, 'Login [' + l.name + '] is a sysadmin. They can do anything in SQL Server, including dropping databases or changing other permissions.' 
-		, 'Review the list of logins and groups in the sysadmin role to verify the require for these elevated permissions.'
+		, 'Review the list of logins and groups in the sysadmin role to verify they require these elevated permissions.'
 		, 'https://straightpathsql.com/cs/sysadmin'
 	FROM master.sys.syslogins l
 	WHERE l.sysadmin = 1
@@ -676,7 +629,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 		, 'Members of the securityadmin role.'
 		, NULL
 		, 'Login [' + l.name + '] is a security admin. They can create other logins that do anything in SQL Server, including dropping databases or changing other permissions.' 
-		, 'Review the list of logins and groups in the securityadmin role to verify the require for these elevated permissions.'
+		, 'Review the list of logins and groups in the securityadmin role to verify they require these elevated permissions.'
 		, 'https://straightpathsql.com/cs/securityadmin'
 	FROM master.sys.syslogins l
 	WHERE l.securityadmin = 1
@@ -694,7 +647,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 		, 'Logins with CONTROL SERVER permissions.'
 		, NULL
 		, 'Login [' + pri.[name]+ '] has the CONTROL SERVER permission. They can do anything in SQL Server, including dropping databases or changing permissions.'
-		, 'Review the list of logins and groups with CONTROL SERVER permission to verify the require for these elevated permissions.'
+		, 'Review the list of logins and groups with CONTROL SERVER permission to verify they require these elevated permissions.'
 		, 'https://straightpathsql.com/cs/control-server'
 	FROM sys.server_principals AS pri
 	WHERE pri.[principal_id] IN (
@@ -730,7 +683,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 		, 'Invalid login with Windows Authentication'
 		, 'There is a login with permissions that is no longer mapped to a valid Windows user.'
 		, NULL
-		, QUOTENAME(LoginName) + 'Is an invalid Windows user or group that is mapped to a SQL Server principal.'
+		, QUOTENAME(LoginName) + ' is an invalid Windows user or group that is mapped to a SQL Server principal.'
 		, 'Verify in the account no longer exists and carefully remove all SQL Server permissions.'
 		, 'https://straightpathsql.com/cs/invalid-windows-login'
 	FROM #InvalidLogins;
@@ -1210,7 +1163,8 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 			, 'https://straightpathsql.com/cs/database-owner-is-not-preferred-owner'
 		FROM sys.databases
 		WHERE (((SUSER_SNAME(owner_sid) <> SUSER_SNAME(0x01)) AND (name IN (N'master', N'model', N'msdb', N'tempdb')))
-		OR ((SUSER_SNAME(owner_sid) <> @PreferredDBOwner) AND (name NOT IN (N'master', N'model', N'msdb', N'tempdb'))));
+		OR ((SUSER_SNAME(owner_sid) <> @PreferredDBOwner) AND (name NOT IN (N'master', N'model', N'msdb', N'tempdb'))))
+			AND source_database_id IS NULL; /* exclude snapshot databases */
 
 		END;
 
@@ -1230,7 +1184,8 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 	INNER JOIN master.sys.syslogins l
 		ON d.owner_sid = l.sid
 	WHERE l.sysadmin = 1
-		AND d.database_id > 4;
+		AND d.database_id > 4
+		AND d.source_database_id IS NULL; /* exclude snapshot databases */
 
 	/* database owner is unknown */
 	INSERT #Results
@@ -1246,7 +1201,8 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 		, 'Assign an owner to this database, preferably sa if possible.'
 		, 'https://straightpathsql.com/cs/database-owner-blank'
 	FROM sys.databases
-	WHERE SUSER_SNAME(owner_sid) is NULL;
+	WHERE SUSER_SNAME(owner_sid) is NULL
+		AND source_database_id IS NULL; /* exclude snapshot databases */
 
 
 	/* check for SQL Server service using built-in elevated account */
@@ -1278,7 +1234,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 		, 'The SQL Server service is using account [' + service_account + '], which is in the sysadmin role.'
 		, NULL
 		, 'The SQL Server service has to do anything on the server. This could result in privilege escalation via a stored procedure or job.'
-		, 'We recommend removing the service account from the sysadmin role to adhere to the principle of lease privilege.'
+		, 'We recommend removing the service account from the sysadmin role to adhere to the principle of least privilege.'
 		, 'https://straightpathsql.com/cs/service-account-permissions'
 	FROM sys.dm_server_services 
 	WHERE servicename like 'SQL Server (%'
@@ -1352,7 +1308,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 			8
 			, 801
 			, 2
-			, 'To few SQL Server error log files'
+			, 'Too few SQL Server error log files'
 			, 'The error retention log is at the default value of 6.'
 			, NULL
 			, 'This instance is configured for only ' + CONVERT(VARCHAR(10), (ISNULL(@NumErrorLogs, -1))) + ' SQL Server error log files.'
@@ -1485,7 +1441,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 		, 'Extended Protection'
 		, NULL
 		, 'Extended Protection is currently ' 
-		+  CASE @HideInstance
+		+  CASE @ExtendedProtection
 			WHEN 1 THEN 'ENABLED.'
 			WHEN 0 THEN 'DISABLED.'
 			ELSE 'UNKNOWN.'
@@ -1576,7 +1532,8 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 	FROM sys.databases d
 	INNER JOIN sys.server_principals sp
 		ON d.owner_sid = sp.sid
-	WHERE sp.[type] = 'U';
+	WHERE sp.[type] = 'U'
+		AND d.source_database_id IS NULL; /* exclude snapshot databases */
 
 
 	/* TRUSTWORTHY setting check */
@@ -1630,7 +1587,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 	UPDATE #Results
 	SET
 		CheckID = 334
-		, Importance = 1
+		, [Importance] = 1
 		, Issue = 'db_owner role member - system databases'
 		, CheckName = 'db_owner role member - system databases'
 	WHERE CheckID = 333
@@ -1654,7 +1611,7 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 	UPDATE #Results
 	SET
 		CheckID = 336
-		, Importance = 1
+		, [Importance] = 1
 		, Issue = 'Unusual database permissions - system databases'
 		, CheckName = 'Unusual database permissions - system databases'
 	WHERE CheckID = 335
@@ -1740,15 +1697,17 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 		DECLARE public_cursor CURSOR FOR
 			SELECT name 
 			FROM master.sys.databases
-			WHERE database_id > 4 AND state = 0
-			AND [name] not in (
-				SELECT adc.database_name
-				FROM sys.availability_replicas AS ar
-			   JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
-				WHERE ar.secondary_role_allow_connections = 0
-			   AND ar.replica_server_name = @@SERVERNAME
-			   AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0 
-				)
+			WHERE database_id > 4 
+				AND state = 0
+				AND source_database_id IS NULL /* exclude snapshot databases */
+				AND [name] NOT IN (
+					SELECT adc.database_name
+					FROM sys.availability_replicas AS ar
+				   JOIN sys.availability_databases_cluster adc ON adc.group_id = ar.group_id
+					WHERE ar.secondary_role_allow_connections = 0
+				   AND ar.replica_server_name = @@SERVERNAME
+				   AND sys.fn_hadr_is_primary_replica(adc.database_name) = 0 
+					)
 
 		OPEN public_cursor 
 		FETCH NEXT FROM public_cursor INTO @DB_Name 
@@ -1824,11 +1783,11 @@ IF @Mode IN (0, 1, 99) BEGIN /* Collect issues info */
 /* results */
 IF @Mode = 1
 	SELECT
-		CASE Importance
+		CASE [Importance]
             WHEN 1 THEN '1 - High'
-		    WHEN 2 THEN '2- Medium'
+		    WHEN 2 THEN '2 - Medium'
 			ELSE '3 - Low'
-		END AS Importance
+		END AS [Importance]
         , CheckName
         , Issue
         , DatabaseName
@@ -1837,9 +1796,9 @@ IF @Mode = 1
         , ReadMoreURL
 		, CheckID
     FROM #Results
-    WHERE Importance = 1
+    WHERE [Importance] = 1
     ORDER BY
-        Importance
+        [Importance]
 		, CheckName
         , DatabaseName
         , Details;
@@ -1847,12 +1806,12 @@ IF @Mode = 1
 
 IF @Mode = 0
 	SELECT
-		CASE Importance
+		CASE [Importance]
             WHEN 0 THEN '0 - Information'
 			WHEN 1 THEN '1 - High'
-		    WHEN 2 THEN '2- Medium'
+		    WHEN 2 THEN '2 - Medium'
 			ELSE '3 - Low'
-		END AS Importance
+		END AS [Importance]
         , CheckName
         , Issue
         , DatabaseName
@@ -1861,21 +1820,21 @@ IF @Mode = 0
         , ReadMoreURL
 		, CheckID
     FROM #Results
-    WHERE Importance > 0
+    WHERE [Importance] > 0
     ORDER BY
-        Importance
+        [Importance]
 		, CheckName
         , DatabaseName
         , Details;
   
   IF @Mode = 99
 	SELECT
-		CASE Importance
+		CASE [Importance]
             WHEN 0 THEN '0 - Information'
             WHEN 1 THEN '1 - High'
-		    WHEN 2 THEN '2- Medium'
+		    WHEN 2 THEN '2 - Medium'
 			ELSE '3 - Low'
-		END AS Importance
+		END AS [Importance]
         , CheckName
         , Issue
         , DatabaseName
@@ -1885,7 +1844,8 @@ IF @Mode = 0
 		, CheckID
     FROM #Results
     ORDER BY
-        Importance
+        [Importance]
 		, CheckName
         , DatabaseName
         , Details;
+GO

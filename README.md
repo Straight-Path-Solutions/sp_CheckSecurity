@@ -75,6 +75,8 @@ Although you can simply execute it as is, there are currently five parameters.<p
 
 **@CheckLocalAdmin** - the default is 0, which does not check the members of the local Windows Administrators group. Because this is a powerful group, we recommend setting this to 1 to determine who is in the local Administrators group, however…<p>
 
+**@VersionCheck** – to check the version number and version date of this tool.<p>
+
 ### *** WARNING ***<p>
 
  If you execute sp_CheckSecurity with @CheckLocalAdmin = 1, then sp_CheckSecurity will attempt to read and record the members of the BUILTIN\Administrators group. If BUILTIN\Administrators is not currently a member of the Logins, then sp_CheckSecurity will proceed with the following logic.
